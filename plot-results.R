@@ -1,9 +1,10 @@
 data <- read.csv('results.csv')
+data$arrival_rate <- as.factor(data$arrival_rate)
 
 library(ggplot2)
-p <- ggplot(data, aes(x=method, y=response_time, fill=method)) +
-  geom_violin() +
-  geom_boxplot(width=0.1, outlier.shape = NA) +
-  labs(title="Simulation Results",x="Scheduling Method", y = "Response Times (s)") +
-  theme(legend.position = "none")
+dodge <- position_dodge(width = 0.7)
+p <- ggplot(data, aes(x=arrival_rate, y=response_time, fill=method)) +
+  geom_violin(position = dodge, trim=FALSE) +
+  labs(title="Simulation Results", x="Arrival rate [requests/s]", y = "Response time [s]") +
+  geom_point(stat = "summary", fun.y = "mean", color = "black", position = dodge)
 print(p)
