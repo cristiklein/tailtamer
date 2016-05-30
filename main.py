@@ -4,12 +4,15 @@ Main module of the simulator. Processes input to simulation, steers simulation a
 """
 
 import collections
+from contextlib import contextmanager
 import csv
 from itertools import tee
+import random
 
-from tailtamer.core import Environment
+import simpy
 
 Result = collections.namedtuple('Result', 'arrival_rate method response_time')
+TraceItem = collections.namedtuple('TraceItem', 'who direction')
 
 def pairwise(iterable):
     "s -> (s0,s1), (s1,s2), (s2, s3), ..."
@@ -48,6 +51,10 @@ class VirtualMachine(object):
         # TODO
         pass
 
+    def execute(self, request, demand):
+        # TODO
+        pass
+
 class Request(object):
     """
     Represents a request, travelling horizontally and vertically through the system.
@@ -56,6 +63,7 @@ class Request(object):
     def __init__(self, start_time):
         self._start_time = start_time
         self._end_time = None
+        self._trace = []
 
     @property
     def start_time(self):
@@ -70,6 +78,16 @@ class Request(object):
 
     end_time = property(get_end_time, set_end_time)
 
+    @contextmanager
+    def do_trace(self, who):
+        self._trace.append(TraceItem(who=who, direction='enter'))
+        yield
+        self._trace.append(TraceItem(who=who, direction='exit'))
+
+    @property
+    def trace(self):
+        return self._trace
+
 class OpenLoopClient(object):
     """
     Simulates open-loop clients, with a given arrival rate.
@@ -79,23 +97,24 @@ class OpenLoopClient(object):
         self._env = env
         self._downstream_microservice = None
         self._requests = []
+        self._random = random.Random()
 
-        self._env.spawn(self.run)
+        self._env.process(self.run())
 
     def connect_to(self, microservice):
         self._downstream_microservice = microservice
 
     def run(self):
         while True:
-            self._env.spawn(self._on_arrival)
-            waiting_time = self._env.random.expovariate(self._arrival_rate)
-            self._env.sleep(waiting_time)
+            self._env.process(self._on_arrival())
+            waiting_time = self._random.expovariate(self._arrival_rate)
+            yield self._env.timeout(waiting_time)
 
     def _on_arrival(self):
         request = Request(start_time=self._env.now)
-        self._requests.append(request)
-        self._downstream_microservice.on_request(request)
+        yield self._env.process(self._downstream_microservice.on_request(request))
         request.end_time = self._env.now
+        self._requests.append(request)
 
     @property
     def response_times(self):
@@ -105,8 +124,9 @@ class MicroService(object):
     """
     Simulates a micro-service, with a given average work and downcall structure.
     """
-    def __init__(self, env, average_work, thread_pool_size=100):
+    def __init__(self, env, name, average_work, thread_pool_size=100):
         self._env = env
+        self._name = name
         self._average_work = average_work
         self._executor = None
         self._downstream_microservices = []
@@ -118,18 +138,23 @@ class MicroService(object):
         self._downstream_microservices.append(microservice)
 
     def on_request(self, request):
-        with request.trace(self):
+        with request.do_trace(self):
             # TODO: Add randomness to demand. Variance might be a command-line parameter.
             demand = self._average_work
             demand_between_calls = demand / (len(self._downstream_microservices)+1)
 
-            self._compute(request, demand_between_calls)
+            yield self._env.process(self._compute(request, demand_between_calls))
             for microservice in self._downstream_microservices:
-                microservice.on_request(request)
-                self._compute(request, demand_between_calls)
+                yield self._env.process(microservice.on_request(request))
+                yield self._env.process(self._compute(request, demand_between_calls))
 
     def _compute(self, request, demand):
-        self._executor.execute(request, demand)
+        # TODO
+        #self._executor.execute(request, demand)
+        yield self._env.timeout(demand)
+
+    def __str__(self):
+        return self._name
 
 def run_simulation(arrival_rate, method, physical_machines=1):
     """
@@ -139,7 +164,7 @@ def run_simulation(arrival_rate, method, physical_machines=1):
     #
     # Simulation environment
     #
-    env = Environment()
+    env = simpy.Environment()
 
     #
     # Infrastructure layer
@@ -153,10 +178,10 @@ def run_simulation(arrival_rate, method, physical_machines=1):
     # Software layer
     #
     client_layer = [OpenLoopClient(env, arrival_rate=arrival_rate)]
-    frontend_layer = [MicroService(env, average_work=0.001)]
-    caching_layer = [MicroService(env, average_work=0.001)]
-    business_layer = [MicroService(env, average_work=0.010)]
-    persistence_layer = [MicroService(env, average_work=0.100)]
+    frontend_layer = [MicroService(env, name='fe0', average_work=0.001)]
+    caching_layer = [MicroService(env, name='ca0', average_work=0.001)]
+    business_layer = [MicroService(env, name='bu0', average_work=0.010)]
+    persistence_layer = [MicroService(env, name='pe0', average_work=0.100)]
 
     layers = [client_layer, frontend_layer, caching_layer, business_layer, persistence_layer]
 
@@ -196,7 +221,7 @@ def run_simulation(arrival_rate, method, physical_machines=1):
     #
     # Run simulation
     #
-    env.run()
+    env.run(until=100)
 
     #
     # Collect data
