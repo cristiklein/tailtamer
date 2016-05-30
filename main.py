@@ -224,7 +224,7 @@ def run_simulation(arrival_rate, method, physical_machines=1):
             # Clients come with their own infrastructure
             continue
         for microservice in layer:
-            virtual_machine = VirtualMachine(env, num_cpus=2)
+            virtual_machine = VirtualMachine(env, num_cpus=8)
             virtual_machine.name = 'vm_' + str(microservice)
             microservice.run_on(virtual_machine)
             # TODO: Optionally add a VM to PM mapping algorithm.
@@ -266,7 +266,7 @@ def main(output_filename='results.csv'):
     with open(output_filename, 'w') as output_file:
         writer = csv.DictWriter(output_file, fieldnames=Result._fields)
         writer.writeheader()
-        for arrival_rate in range(10, 100, 10):
+        for arrival_rate in range(10, 80, 10):
             for method in ['fifo', 'tail-tamer-without-preemption', 'tail-tamer-with-preemption']:
                 results = run_simulation(
                     arrival_rate=arrival_rate,
