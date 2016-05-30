@@ -39,9 +39,13 @@ class VirtualMachine(object):
     """
     Simulates a virtual machine.
     """
-    def __init__(self, env, num_cpus):
-        # TODO
-        pass
+    def __init__(self, env, num_cpus, name=None):
+        self._env = env
+        self._cpus = simpy.Resource(env, num_cpus)
+        # TODO: str(id(self)) is not idempotent.
+        self._name = 'vm_' + str(id(self))
+        if name:
+            self._name = name
 
     def run_on(self, executor):
         # TODO
@@ -51,9 +55,22 @@ class VirtualMachine(object):
         # TODO
         pass
 
-    def execute(self, request, demand):
-        # TODO
-        pass
+    def execute(self, request, work):
+        with request.do_trace(self):
+            with self._cpus.request() as req:
+                yield req
+                yield self._env.timeout(work)
+
+    def get_name(self):
+        return self._name
+
+    def set_name(self, name):
+        self._name = name
+
+    name = property(get_name, set_name)
+
+    def __str__(self):
+        return self._name
 
 class Request(object):
     """
@@ -115,6 +132,9 @@ class OpenLoopClient(object):
         yield self._env.process(self._downstream_microservice.on_request(request))
         request.end_time = self._env.now
         self._requests.append(request)
+        #for who, direction in request.trace:
+        #    print(who, direction)
+        #print()
 
     @property
     def response_times(self):
@@ -123,8 +143,10 @@ class OpenLoopClient(object):
 class MicroService(object):
     """
     Simulates a micro-service, with a given average work and downcall structure.
+    Currently, the execution model assumes one thread is created for each
+    request.
     """
-    def __init__(self, env, name, average_work, thread_pool_size=100):
+    def __init__(self, env, name, average_work):
         self._env = env
         self._name = name
         self._average_work = average_work
@@ -149,9 +171,7 @@ class MicroService(object):
                 yield self._env.process(self._compute(request, demand_between_calls))
 
     def _compute(self, request, demand):
-        # TODO
-        #self._executor.execute(request, demand)
-        yield self._env.timeout(demand)
+        yield self._env.process(self._executor.execute(request, demand))
 
     def __str__(self):
         return self._name
@@ -205,6 +225,7 @@ def run_simulation(arrival_rate, method, physical_machines=1):
             continue
         for microservice in layer:
             virtual_machine = VirtualMachine(env, num_cpus=2)
+            virtual_machine.name = 'vm_' + str(microservice)
             microservice.run_on(virtual_machine)
             # TODO: Optionally add a VM to PM mapping algorithm.
             virtual_machine.run_on(physical_machines[0])
