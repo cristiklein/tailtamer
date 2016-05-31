@@ -98,23 +98,28 @@ class VirtualMachine(NamedObject):
         with request.do_trace(self):
             while remaining_work > 0:
                 with self._cpus.request(priority=priority, preempt=preempt) as req:
-                    print(self._env.now, request, 'waiting')
+                    self._log(request, 'waiting')
                     yield req
-                    print(self._env.now, request, 'starting')
+                    self._log(request, 'starting')
                     try:
-                        timeslice = 0.005
-                        work_to_do_now = min(timeslice, remaining_work)
-                        yield self._env.timeout(work_to_do_now)
-                        usage = work_to_do_now
-                        print(self._env.now, request, 'sliced/completed')
-                        # LEFT HERE: check that requests are taken in a round-robin fashion
+                        if self._scheduler == 'fifo' or self._scheduler == 'tail-tamer-without-preemption':
+                            timeslice = 0.005
+                            work_to_do = min(timeslice, remaining_work)
+                        else:
+                            work_to_do = remaining_work
+                        yield self._env.timeout(work_to_do)
+                        remaining_work -= work_to_do
+                        if remaining_work > 0:
+                            self._log(request, 'preempted by self')
+                        else:
+                            self._log(request, 'completed')
                     except simpy.Interrupt as interrupt:
-                        by = interrupt.cause.by
-                        usage = self._env.now - interrupt.cause.usage_since
-                        print('%s got preempted by %s at %s after %s' %
-                              (self._name, by, self._env.now, usage))
-                        print(self._env.now, request, 'preempted')
-                    remaining_work -= usage
+                        work_done = self._env.now - interrupt.cause.usage_since
+                        remaining_work -= work_done
+                        self._log(request, 'preempted')
+
+    def _log(self, *args):
+        print('{0:.6f}'.format(self._env.now), *args)
 
 
 class Request(NamedObject):
