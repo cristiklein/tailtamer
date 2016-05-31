@@ -82,16 +82,39 @@ class VirtualMachine(NamedObject):
         self._scheduler = scheduler
 
     def execute(self, request, work):
+        remaining_work = work
+        if self._scheduler == 'fifo':
+            preempt = False
+            priority = 0
+        elif self._scheduler == 'tail-tamer-without-preemption':
+            preempt = False
+            priority = request.start_time
+        elif self._scheduler == 'tail-tamer-with-preemption':
+            preempt = True
+            priority = request.start_time
+        else:
+            raise NotImplementedError() # should never get here
+
         with request.do_trace(self):
-            with self._cpus.request(priority=request.start_time, preempt=True) as req:
-                yield req
-                try:
-                    yield self._env.timeout(work)
-                except simpy.Interrupt as interrupt:
-                    by = interrupt.cause.by
-                    usage = self._env.now - interrupt.cause.usage_since
-                    print('%s got preempted by %s at %s after %s' %
-                            (self._name, by, self._env.now, usage))
+            while remaining_work > 0:
+                with self._cpus.request(priority=priority, preempt=preempt) as req:
+                    print(self._env.now, request, 'waiting')
+                    yield req
+                    print(self._env.now, request, 'starting')
+                    try:
+                        timeslice = 0.005
+                        work_to_do_now = min(timeslice, remaining_work)
+                        yield self._env.timeout(work_to_do_now)
+                        usage = work_to_do_now
+                        print(self._env.now, request, 'sliced/completed')
+                        # LEFT HERE: check that requests are taken in a round-robin fashion
+                    except simpy.Interrupt as interrupt:
+                        by = interrupt.cause.by
+                        usage = self._env.now - interrupt.cause.usage_since
+                        print('%s got preempted by %s at %s after %s' %
+                              (self._name, by, self._env.now, usage))
+                        print(self._env.now, request, 'preempted')
+                    remaining_work -= usage
 
 
 class Request(NamedObject):
