@@ -106,6 +106,7 @@ class VirtualMachine(NamedObject):
                             work_to_do = min(timeslice, remaining_work)
                         else:
                             work_to_do = remaining_work
+                        # TODO: delegate to lower-level executor
                         yield self._env.timeout(work_to_do)
                         remaining_work -= work_to_do
                     except simpy.Interrupt as interrupt:
