@@ -9,6 +9,7 @@ from contextlib import contextmanager
 import csv
 import itertools
 import random
+import sys
 
 import simpy
 
@@ -288,6 +289,7 @@ def main(output_filename='results.csv'):
         writer.writeheader()
         for arrival_rate in range(10, 80, 10):
             for method in ['fifo', 'tail-tamer-without-preemption', 'tail-tamer-with-preemption']:
+                print('arrival_rate={arrival_rate}, method={method}'.format(**locals()), file=sys.stderr)
                 results = run_simulation(
                     arrival_rate=arrival_rate,
                     method=method)
