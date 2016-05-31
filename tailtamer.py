@@ -6,7 +6,7 @@ Main module of the simulator. Processes input to simulation, steers simulation a
 import collections
 from contextlib import contextmanager
 import csv
-from itertools import tee
+import itertools
 import random
 
 import simpy
@@ -27,12 +27,32 @@ TraceItem = collections.namedtuple('TraceItem', 'who direction')
 
 def pairwise(iterable):
     "s -> (s0,s1), (s1,s2), (s2, s3), ..."
-    a, b = tee(iterable)
+    a, b = itertools.tee(iterable)
     next(b, None)
     return zip(a, b)
 
 def create_scheduler(method):
     pass
+
+class NamedObject(object):
+    prefix_to_num = collections.defaultdict(itertools.count)
+
+    def __init__(self, prefix='unnamed', name=None):
+        if name is None:
+            self._name = prefix + str(next(NamedObject.prefix_to_num[prefix]))
+        else:
+            self._name = name
+
+    def get_name(self):
+        return self._name
+
+    def set_name(self, name):
+        self._name = name
+
+    name = property(get_name, set_name)
+
+    def __str__(self):
+        return self._name
 
 class PhysicalMachine(object):
     """
@@ -46,11 +66,13 @@ class PhysicalMachine(object):
         # TODO
         pass
 
-class VirtualMachine(object):
+class VirtualMachine(NamedObject):
     """
     Simulates a virtual machine.
     """
     def __init__(self, env, num_cpus, name=None):
+        super().__init__(prefix='vm', name=name)
+
         self._env = env
         self._cpus = simpy.PreemptiveResource(env, num_cpus)
         # TODO: str(id(self)) is not idempotent.
@@ -78,16 +100,6 @@ class VirtualMachine(object):
                     print('%s got preempted by %s at %s after %s' %
                             (self._name, by, self._env.now, usage))
 
-    def get_name(self):
-        return self._name
-
-    def set_name(self, name):
-        self._name = name
-
-    name = property(get_name, set_name)
-
-    def __str__(self):
-        return self._name
 
 class Request(object):
     """
@@ -158,15 +170,16 @@ class OpenLoopClient(object):
     def response_times(self):
         return [r.end_time - r.start_time for r in self._requests]
 
-class MicroService(object):
+class MicroService(NamedObject):
     """
     Simulates a micro-service, with a given average work and downcall structure.
     Currently, the execution model assumes one thread is created for each
     request.
     """
     def __init__(self, env, name, average_work):
+        super().__init__(prefix='µs', name=name)
+
         self._env = env
-        self._name = name
         self._average_work = average_work
         self._executor = None
         self._downstream_microservices = []
@@ -190,9 +203,6 @@ class MicroService(object):
 
     def _compute(self, request, demand):
         yield self._env.process(self._executor.execute(request, demand))
-
-    def __str__(self):
-        return self._name
 
 def run_simulation(arrival_rate, method, physical_machines=1):
     """
