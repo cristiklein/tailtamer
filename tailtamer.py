@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """
-Main module of the simulator. Processes input to simulation, steers simulation and outputs results.
+Main module of the simulator. Processes input to simulation, steers simulation
+and outputs results.
 """
 
 import collections
@@ -14,25 +15,11 @@ import simpy
 Result = collections.namedtuple('Result', 'arrival_rate method response_time')
 TraceItem = collections.namedtuple('TraceItem', 'who direction')
 
-# LEFT HERE:
-# We need to create some meta-concepts:
-# - Tasks: something that has a certain about of work (duration) to perform.
-# - Worker: something that produces tasks.
-# - Executor: something that can execute (consume) tasks.
-# - Scheduler: something that can decide what to run next and for how long.
-#
-# Questions:
-# How should stuff be executed? Worker pushes tasks to executor? Executer pulls tasks from worker?
-# How to handle the special case when the executor is idle?
-
 def pairwise(iterable):
     "s -> (s0,s1), (s1,s2), (s2, s3), ..."
     a, b = itertools.tee(iterable)
     next(b, None)
     return zip(a, b)
-
-def create_scheduler(method):
-    pass
 
 class NamedObject(object):
     prefix_to_num = collections.defaultdict(itertools.count)
@@ -70,19 +57,28 @@ class VirtualMachine(NamedObject):
     """
     Simulates a virtual machine.
     """
+    ALLOWED_SCHEDULERS = [
+        'fifo',
+        'tail-tamer-without-preemption',
+        'tail-tamer-with-preemption'
+    ]
+
     def __init__(self, env, num_cpus, name=None):
         super().__init__(prefix='vm', name=name)
 
         self._env = env
         self._cpus = simpy.PreemptiveResource(env, num_cpus)
+        self._scheduler = 'fifo'
 
     def run_on(self, executor):
         # TODO
         pass
 
     def set_scheduler(self, scheduler):
-        # TODO
-        pass
+        if scheduler not in self.ALLOWED_SCHEDULERS:
+            raise ValueError('Invalid scheduler {0}. Allowed schedulers: {1}'
+                             .format(scheduler, self.ALLOWED_SCHEDULERS))
+        self._scheduler = scheduler
 
     def execute(self, request, work):
         with request.do_trace(self):
@@ -259,9 +255,9 @@ def run_simulation(arrival_rate, method, physical_machines=1):
     # Configure schedulers
     #
     for physical_machine in physical_machines:
-        physical_machine.set_scheduler(create_scheduler(method))
+        physical_machine.set_scheduler(method)
     for virtual_machine in virtual_machines:
-        virtual_machine.set_scheduler(create_scheduler(method))
+        virtual_machine.set_scheduler(method)
 
     #
     # Run simulation
