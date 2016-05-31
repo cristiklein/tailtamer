@@ -75,10 +75,6 @@ class VirtualMachine(NamedObject):
 
         self._env = env
         self._cpus = simpy.PreemptiveResource(env, num_cpus)
-        # TODO: str(id(self)) is not idempotent.
-        self._name = 'vm_' + str(id(self))
-        if name:
-            self._name = name
 
     def run_on(self, executor):
         # TODO
