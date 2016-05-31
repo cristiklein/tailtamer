@@ -54,8 +54,8 @@ class VirtualMachine(NamedObject):
         'tail-tamer-with-preemption'
     ]
 
-    def __init__(self, env, num_cpus, name=None):
-        super().__init__(prefix='vm', name=name)
+    def __init__(self, env, num_cpus, prefix='vm', name=None):
+        super().__init__(prefix=prefix, name=name)
 
         self._env = env
         self._cpus = simpy.PreemptiveResource(env, num_cpus)
@@ -124,7 +124,7 @@ class PhysicalMachine(VirtualMachine):
     Simulates a physical machine.
     """
     def __init__(self, *args, **kwargs):
-        NamedObject().__init__(prefix='pm')
+        kwargs.update(prefix='pm')
         super().__init__(*args, **kwargs)
         super().set_scheduler('ps')
 
