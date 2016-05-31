@@ -14,6 +14,17 @@ import simpy
 Result = collections.namedtuple('Result', 'arrival_rate method response_time')
 TraceItem = collections.namedtuple('TraceItem', 'who direction')
 
+# LEFT HERE:
+# We need to create some meta-concepts:
+# - Tasks: something that has a certain about of work (duration) to perform.
+# - Worker: something that produces tasks.
+# - Executor: something that can execute (consume) tasks.
+# - Scheduler: something that can decide what to run next and for how long.
+#
+# Questions:
+# How should stuff be executed? Worker pushes tasks to executor? Executer pulls tasks from worker?
+# How to handle the special case when the executor is idle?
+
 def pairwise(iterable):
     "s -> (s0,s1), (s1,s2), (s2, s3), ..."
     a, b = tee(iterable)
@@ -41,7 +52,7 @@ class VirtualMachine(object):
     """
     def __init__(self, env, num_cpus, name=None):
         self._env = env
-        self._cpus = simpy.Resource(env, num_cpus)
+        self._cpus = simpy.PreemptiveResource(env, num_cpus)
         # TODO: str(id(self)) is not idempotent.
         self._name = 'vm_' + str(id(self))
         if name:
@@ -57,9 +68,15 @@ class VirtualMachine(object):
 
     def execute(self, request, work):
         with request.do_trace(self):
-            with self._cpus.request() as req:
+            with self._cpus.request(priority=request.start_time, preempt=True) as req:
                 yield req
-                yield self._env.timeout(work)
+                try:
+                    yield self._env.timeout(work)
+                except simpy.Interrupt as interrupt:
+                    by = interrupt.cause.by
+                    usage = self._env.now - interrupt.cause.usage_since
+                    print('%s got preempted by %s at %s after %s' %
+                            (self._name, by, self._env.now, usage))
 
     def get_name(self):
         return self._name
