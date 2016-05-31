@@ -331,6 +331,11 @@ def run_simulation(arrival_rate, method, physical_machines=1):
         'CPU time check failed: actual {0}, expected {1}'.format(
             actual_cpu_time, expected_cpu_time)
 
+    actual_pm_cpu_time = sum([pm.cpu_time for pm in physical_machines])
+    assert abs(actual_pm_cpu_time-expected_cpu_time) < 0.001, \
+        'PM CPU time check failed: actual {0}, expected {1}'.format(
+            actual_pm_cpu_time, expected_cpu_time)
+
     return [
         Result(
             arrival_rate=arrival_rate,
