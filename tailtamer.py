@@ -43,18 +43,6 @@ class NamedObject(object):
     def __str__(self):
         return self._name
 
-class PhysicalMachine(object):
-    """
-    Simulates a physical machine.
-    """
-    def __init__(self, env, num_cpus):
-        # TODO
-        pass
-
-    def set_scheduler(self, scheduler):
-        # TODO
-        pass
-
 class VirtualMachine(NamedObject):
     """
     Simulates a virtual machine.
@@ -72,12 +60,12 @@ class VirtualMachine(NamedObject):
         self._env = env
         self._cpus = simpy.PreemptiveResource(env, num_cpus)
         self._scheduler = 'fifo'
+        self._executor = None
 
         self._cpu_time = 0
 
     def run_on(self, executor):
-        # TODO
-        pass
+        self._executor = executor
 
     def set_scheduler(self, scheduler):
         if scheduler not in self.ALLOWED_SCHEDULERS:
@@ -112,8 +100,10 @@ class VirtualMachine(NamedObject):
                             work_to_do = min(timeslice, remaining_work)
                         else:
                             work_to_do = remaining_work
-                        # TODO: delegate to lower-level executor
-                        yield self._env.timeout(work_to_do)
+                        if self._executor is None:
+                            yield self._env.timeout(work_to_do)
+                        else:
+                            yield self._env.process(self._executor.execute(request, work_to_do))
                         remaining_work -= work_to_do
                         self._cpu_time += work_to_do
                     except simpy.Interrupt as interrupt:
@@ -129,6 +119,17 @@ class VirtualMachine(NamedObject):
         # TODO: Inaccurate if called during a timeslice
         return self._cpu_time
 
+class PhysicalMachine(VirtualMachine):
+    """
+    Simulates a physical machine.
+    """
+    def __init__(self, *args, **kwargs):
+        NamedObject().__init__(prefix='pm')
+        super().__init__(*args, **kwargs)
+        super().set_scheduler('ps')
+
+    def run_on(self, executor):
+        raise NotImplementedError("I'm not sure it makes sense to run PMs on something else")
 
 class Request(NamedObject):
     """
@@ -256,7 +257,7 @@ def run_simulation(arrival_rate, method, physical_machines=1):
     # Infrastructure layer
     #
     physical_machines = [
-        PhysicalMachine(env, num_cpus=4)
+        PhysicalMachine(env, num_cpus=16)
         for _ in range(physical_machines)
     ]
 
