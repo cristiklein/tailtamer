@@ -317,6 +317,15 @@ def run_simulation(arrival_rate, method, physical_machines=1):
     #
     response_times = sum([client.response_times for client in client_layer], [])
 
+    #
+    # HACK: Sanity check
+    #
+    actual_cpu_time = sum([vm.cpu_time for vm in virtual_machines])
+    expected_cpu_time = len(response_times) * (0.001 + 0.001 + 0.010 + 0.100)
+    assert abs(actual_cpu_time-expected_cpu_time) < 0.001, \
+        'CPU time check failed: actual {0}, expected {1}'.format(
+            actual_cpu_time, expected_cpu_time)
+
     return [
         Result(
             arrival_rate=arrival_rate,
