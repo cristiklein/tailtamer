@@ -126,12 +126,13 @@ class OpenLoopClient(object):
     """
     Simulates open-loop clients, with a given arrival rate.
     """
-    def __init__(self, env, arrival_rate):
+    def __init__(self, env, arrival_rate, seed=1):
         self._arrival_rate = arrival_rate
         self._env = env
         self._downstream_microservice = None
         self._requests = []
         self._random = random.Random()
+        self._random.seed(seed)
 
         self._env.process(self.run())
 
