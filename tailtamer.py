@@ -94,12 +94,14 @@ class VirtualMachine(NamedObject):
                             (self._name, by, self._env.now, usage))
 
 
-class Request(object):
+class Request(NamedObject):
     """
     Represents a request, travelling horizontally and vertically through the system.
     Only the client is allowed to create new requests.
     """
     def __init__(self, start_time):
+        super().__init__(prefix='r')
+
         self._start_time = start_time
         self._end_time = None
         self._trace = []
