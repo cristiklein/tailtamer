@@ -8,6 +8,7 @@ import collections
 from contextlib import contextmanager
 import csv
 import itertools
+import multiprocessing
 import random
 import sys
 
@@ -98,9 +99,7 @@ class VirtualMachine(NamedObject):
         with request.do_trace(self):
             while remaining_work > 0:
                 with self._cpus.request(priority=priority, preempt=preempt) as req:
-                    self._log(request, 'waiting')
                     yield req
-                    self._log(request, 'starting')
                     try:
                         if self._scheduler == 'fifo' or self._scheduler == 'tail-tamer-without-preemption':
                             timeslice = 0.005
@@ -109,14 +108,9 @@ class VirtualMachine(NamedObject):
                             work_to_do = remaining_work
                         yield self._env.timeout(work_to_do)
                         remaining_work -= work_to_do
-                        if remaining_work > 0:
-                            self._log(request, 'preempted by self')
-                        else:
-                            self._log(request, 'completed')
                     except simpy.Interrupt as interrupt:
                         work_done = self._env.now - interrupt.cause.usage_since
                         remaining_work -= work_done
-                        self._log(request, 'preempted')
 
     def _log(self, *args):
         print('{0:.6f}'.format(self._env.now), *args)
@@ -124,8 +118,8 @@ class VirtualMachine(NamedObject):
 
 class Request(NamedObject):
     """
-    Represents a request, travelling horizontally and vertically through the system.
-    Only the client is allowed to create new requests.
+    Represents a request, travelling horizontally and vertically through the
+    system. Only the client is allowed to create new requests.
     """
     def __init__(self, start_time):
         super().__init__(prefix='r')
@@ -182,7 +176,8 @@ class OpenLoopClient(object):
 
     def _on_arrival(self):
         request = Request(start_time=self._env.now)
-        yield self._env.process(self._downstream_microservice.on_request(request))
+        yield self._env.process(
+            self._downstream_microservice.on_request(request))
         request.end_time = self._env.now
         self._requests.append(request)
         #for who, direction in request.trace:
@@ -215,21 +210,25 @@ class MicroService(NamedObject):
 
     def on_request(self, request):
         with request.do_trace(self):
-            # TODO: Add randomness to demand. Variance might be a command-line parameter.
+            # TODO: Add variance; might be a command-line parameter.
             demand = self._average_work
-            demand_between_calls = demand / (len(self._downstream_microservices)+1)
+            demand_between_calls = \
+                demand / (len(self._downstream_microservices)+1)
 
-            yield self._env.process(self._compute(request, demand_between_calls))
+            yield self._env.process(
+                self._compute(request, demand_between_calls))
             for microservice in self._downstream_microservices:
                 yield self._env.process(microservice.on_request(request))
-                yield self._env.process(self._compute(request, demand_between_calls))
+                yield self._env.process(
+                    self._compute(request, demand_between_calls))
 
     def _compute(self, request, demand):
         yield self._env.process(self._executor.execute(request, demand))
 
 def run_simulation(arrival_rate, method, physical_machines=1):
     """
-    Wire the simulation entities together, run one simulation and collect results.
+    Wire the simulation entities together, run one simulation and collect
+    results.
     """
 
     #
@@ -254,7 +253,13 @@ def run_simulation(arrival_rate, method, physical_machines=1):
     business_layer = [MicroService(env, name='bu0', average_work=0.010)]
     persistence_layer = [MicroService(env, name='pe0', average_work=0.100)]
 
-    layers = [client_layer, frontend_layer, caching_layer, business_layer, persistence_layer]
+    layers = [
+        client_layer,
+        frontend_layer,
+        caching_layer,
+        business_layer,
+        persistence_layer,
+    ]
 
     #
     # Horizontal wiring
@@ -308,23 +313,41 @@ def run_simulation(arrival_rate, method, physical_machines=1):
         )
         for response_time in response_times]
 
+
 def main(output_filename='results.csv'):
     """
     Entry-point for simulator.
     Simulate the system for each method and output results.
     """
 
+    arrival_rates = range(10, 80, 10)
+    methods = [
+        'fifo',
+        'tail-tamer-without-preemption',
+        'tail-tamer-with-preemption',
+    ]
+
+    workers = multiprocessing.Pool() # pylint: disable=no-member
+    futures = []
+    for arrival_rate in arrival_rates:
+        for method in methods:
+            future = workers.apply_async(
+                run_simulation,
+                kwds=dict(arrival_rate=arrival_rate, method=method))
+            futures.append(future)
+
     with open(output_filename, 'w') as output_file:
-        writer = csv.DictWriter(output_file, fieldnames=Result._fields)
+        fieldnames = Result._fields # pylint: disable=protected-access
+        writer = csv.DictWriter(output_file, fieldnames=fieldnames)
         writer.writeheader()
-        for arrival_rate in range(10, 80, 10):
-            for method in ['fifo', 'tail-tamer-without-preemption', 'tail-tamer-with-preemption']:
-                print('arrival_rate={arrival_rate}, method={method}'.format(**locals()), file=sys.stderr)
-                results = run_simulation(
-                    arrival_rate=arrival_rate,
-                    method=method)
-                for result in results:
-                    writer.writerow(result._asdict())
+
+        for future in futures:
+            results = future.get()
+            print('completed: arrival_rate={0},method={1}'.format(
+                results[0].arrival_rate, results[1].method), file=sys.stderr)
+            for result in results:
+                row = result._asdict() # pylint: disable=protected-access
+                writer.writerow(row)
 
 if __name__ == "__main__":
     main()
