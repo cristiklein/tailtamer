@@ -348,6 +348,7 @@ def main(output_filename='results.csv'):
     arrival_rates = range(10, 80, 10)
     methods = [
         'fifo',
+        'ps',
         'tail-tamer-without-preemption',
         'tail-tamer-with-preemption',
     ]
