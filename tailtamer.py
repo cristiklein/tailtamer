@@ -61,6 +61,7 @@ class VirtualMachine(NamedObject):
     """
     ALLOWED_SCHEDULERS = [
         'fifo',
+        'ps',
         'tail-tamer-without-preemption',
         'tail-tamer-with-preemption'
     ]
@@ -89,6 +90,9 @@ class VirtualMachine(NamedObject):
         if self._scheduler == 'fifo':
             preempt = False
             priority = 0
+        elif self._scheduler == 'ps':
+            preempt = False
+            priority = 0
         elif self._scheduler == 'tail-tamer-without-preemption':
             preempt = False
             priority = request.start_time
@@ -103,7 +107,7 @@ class VirtualMachine(NamedObject):
                 with self._cpus.request(priority=priority, preempt=preempt) as req:
                     yield req
                     try:
-                        if self._scheduler == 'fifo' or self._scheduler == 'tail-tamer-without-preemption':
+                        if self._scheduler == 'ps' or self._scheduler == 'tail-tamer-without-preemption':
                             timeslice = 0.005
                             work_to_do = min(timeslice, remaining_work)
                         else:
