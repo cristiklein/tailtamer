@@ -27,6 +27,8 @@ def test_time_slicing():
     assert abs(requests[0].end_time - 1.995) < 0.001
     assert abs(requests[1].end_time - 2.000) < 0.001
 
+    assert abs(vm.cpu_time - 2) < 0.001
+
 def test_tail_tamer_without_preemption():
     env = simpy.Environment()
     vm = tailtamer.VirtualMachine(env, num_cpus=1)
@@ -52,6 +54,8 @@ def test_tail_tamer_without_preemption():
     assert abs(requests[1].end_time - 2.105) < 0.001
     assert abs(requests[2].end_time - 3.100) < 0.001
 
+    assert abs(vm.cpu_time - 3) < 0.001, vm.cpu_time
+
 def test_tail_tamer_with_preemption():
     env = simpy.Environment()
     vm = tailtamer.VirtualMachine(env, num_cpus=1)
@@ -76,3 +80,5 @@ def test_tail_tamer_with_preemption():
     assert abs(requests[0].end_time - 1.102) < 0.001, requests[0].end_time
     assert abs(requests[1].end_time - 2.102) < 0.001
     assert abs(requests[2].end_time - 3.100) < 0.001
+
+    assert vm.cpu_time == 3

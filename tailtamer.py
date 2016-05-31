@@ -72,6 +72,8 @@ class VirtualMachine(NamedObject):
         self._cpus = simpy.PreemptiveResource(env, num_cpus)
         self._scheduler = 'fifo'
 
+        self._cpu_time = 0
+
     def run_on(self, executor):
         # TODO
         pass
@@ -109,12 +111,19 @@ class VirtualMachine(NamedObject):
                         # TODO: delegate to lower-level executor
                         yield self._env.timeout(work_to_do)
                         remaining_work -= work_to_do
+                        self._cpu_time += work_to_do
                     except simpy.Interrupt as interrupt:
                         work_done = self._env.now - interrupt.cause.usage_since
                         remaining_work -= work_done
+                        self._cpu_time += work_done
 
     def _log(self, *args):
         print('{0:.6f}'.format(self._env.now), *args)
+
+    @property
+    def cpu_time(self):
+        # TODO: Inaccurate if called during a timeslice
+        return self._cpu_time
 
 
 class Request(NamedObject):
