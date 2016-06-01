@@ -122,7 +122,7 @@ class VirtualMachine(NamedObject):
                 self._num_active_cpus += 1
                 assert self._num_active_cpus <= self._cpus.capacity, \
                         "Weird! Attempt to execute more requests "+\
-                        "concurrently then available CPUs. There "+\
+                        "concurrently than available CPUs. There "+\
                         "is a bug in the simulator."
                 try:
                     if self._scheduler in \
