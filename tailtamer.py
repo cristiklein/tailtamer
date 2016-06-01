@@ -268,6 +268,10 @@ class MicroService(NamedObject):
     def _compute(self, request, demand):
         yield self._env.process(self._executor.execute(request, demand))
 
+def assertAlmostEqual(actual, expected, message, precision=0.001):
+    assert abs(actual-expected) < precision, \
+        '{0}: actual {1}, expected {2}'.format(message, actual, expected)
+
 def run_simulation(arrival_rate, method, physical_machines=1):
     """
     Wire the simulation entities together, run one simulation and collect
@@ -351,16 +355,17 @@ def run_simulation(arrival_rate, method, physical_machines=1):
     #
     # HACK: Sanity check
     #
-    actual_cpu_time = sum([vm.cpu_time for vm in virtual_machines])
     expected_cpu_time = len(response_times) * (0.001 + 0.001 + 0.010 + 0.100)
-    assert abs(actual_cpu_time-expected_cpu_time) < 0.001, \
-        'CPU time check failed: actual {0}, expected {1}'.format(
-            actual_cpu_time, expected_cpu_time)
 
+    # Ensure VMs did not produce more CPU that requests could have consumed
+    actual_vm_cpu_time = sum([vm.cpu_time for vm in virtual_machines])
+    assertAlmostEqual(actual_vm_cpu_time, expected_cpu_time,
+        'VM CPU time check failed')
+
+    # Same for PMs
     actual_pm_cpu_time = sum([pm.cpu_time for pm in physical_machines])
-    assert abs(actual_pm_cpu_time-expected_cpu_time) < 0.001, \
-        'PM CPU time check failed: actual {0}, expected {1}'.format(
-            actual_pm_cpu_time, expected_cpu_time)
+    assertAlmostEqual(actual_pm_cpu_time, expected_cpu_time,
+        'PM CPU time check failed')
 
     return [
         Result(
