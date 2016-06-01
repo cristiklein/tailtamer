@@ -23,6 +23,11 @@ def pairwise(iterable):
     return zip(a, b)
 
 class NamedObject(object):
+    """
+    Gives classes a more human-friendly string identification as retrieved
+    through `str()`. Name may either be set automatically based on a prefix or
+    set by user.
+    """
     prefix_to_num = collections.defaultdict(itertools.count)
 
     def __init__(self, prefix='unnamed', name=None):
@@ -274,6 +279,9 @@ class MicroService(NamedObject):
         return self._total_work
 
 def assert_almost_equal(actual, expected, message, precision=0.001):
+    """
+    Asserts that two floating point values are within a small difference.
+    """
     assert abs(actual-expected) < precision, \
         '{0}: actual {1}, expected {2}'.format(message, actual, expected)
 
