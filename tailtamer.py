@@ -201,13 +201,11 @@ class OpenLoopClient(object):
     """
     Simulates open-loop clients, with a given arrival rate.
     """
-    def __init__(self, env, arrival_rate, until=None, seed=1):
+    def __init__(self, env, arrival_rate, until=None):
         self._arrival_rate = arrival_rate
         self._env = env
         self._downstream_microservice = None
         self._requests = []
-        self._random = random.Random()
-        self._random.seed(seed)
         self._until = until
 
         self._env.process(self.run())
@@ -219,7 +217,7 @@ class OpenLoopClient(object):
         while self._until is None \
                 or self._env.now < self._until:
             self._env.process(self._on_arrival())
-            waiting_time = self._random.expovariate(self._arrival_rate)
+            waiting_time = self._env.random.expovariate(self._arrival_rate)
             yield self._env.timeout(waiting_time)
 
     def _on_arrival(self):
@@ -287,7 +285,7 @@ def assert_almost_equal(actual, expected, message, precision=0.001):
     assert abs(actual-expected) < precision, \
         '{0}: actual {1}, expected {2}'.format(message, actual, expected)
 
-def run_simulation(arrival_rate, method, physical_machines=1):
+def run_simulation(arrival_rate, method, physical_machines=1, seed=1):
     """
     Wire the simulation entities together, run one simulation and collect
     results.
@@ -297,6 +295,8 @@ def run_simulation(arrival_rate, method, physical_machines=1):
     # Simulation environment
     #
     env = simpy.Environment()
+    env.random = random.Random()
+    env.random.seed(1)
 
     #
     # Infrastructure layer
