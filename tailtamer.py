@@ -10,6 +10,7 @@ import itertools
 import multiprocessing
 import random
 import sys
+import traceback
 
 import simpy
 
@@ -358,7 +359,12 @@ def run_simulation(arrival_rate, method, physical_machines=1):
     #
     # Run simulation
     #
-    env.run()
+    try:
+        env.run()
+    except:
+        print("Exception in simulator:", file=sys.stderr)
+        traceback.print_exc(file=sys.stderr)
+        raise
 
     #
     # Collect data
