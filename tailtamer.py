@@ -240,7 +240,7 @@ class MicroService(NamedObject):
     Currently, the execution model assumes one thread is created for each
     request.
     """
-    def __init__(self, env, name, average_work, variance=None):
+    def __init__(self, env, name, average_work, degree=1, variance=None):
         super().__init__(prefix='µs', name=name)
 
         self._env = env
@@ -248,6 +248,7 @@ class MicroService(NamedObject):
         self._variance = variance or (self._average_work / 10)
         self._executor = None
         self._downstream_microservices = []
+        self._degree = degree
 
         self._total_work = 0
 
@@ -262,14 +263,15 @@ class MicroService(NamedObject):
         demand = self._env.random.normalvariate(self._average_work,
                                                 self._variance)
         demand_between_calls = \
-            demand / (len(self._downstream_microservices)+1)
+            demand / (len(self._downstream_microservices)*self._degree+1)
 
         yield self._env.process(
             self._compute(request, demand_between_calls))
-        for microservice in self._downstream_microservices:
-            yield self._env.process(microservice.on_request(request))
-            yield self._env.process(
-                self._compute(request, demand_between_calls))
+        for degree in range(self._degree):
+            for microservice in self._downstream_microservices:
+                yield self._env.process(microservice.on_request(request))
+                yield self._env.process(
+                    self._compute(request, demand_between_calls))
 
     def _compute(self, request, demand):
         yield self._env.process(self._executor.execute(request, demand))
@@ -313,8 +315,8 @@ def run_simulation(arrival_rate, method, physical_machines=1, seed=1):
     client_layer = [OpenLoopClient(env, arrival_rate=arrival_rate, until=100)]
     frontend_layer = [MicroService(env, name='fe0', average_work=0.001)]
     caching_layer = [MicroService(env, name='ca0', average_work=0.001)]
-    business_layer = [MicroService(env, name='bu0', average_work=0.010)]
-    persistence_layer = [MicroService(env, name='pe0', average_work=0.100)]
+    business_layer = [MicroService(env, name='bu0', average_work=0.010, degree=3)]
+    persistence_layer = [MicroService(env, name='pe0', average_work=0.030)]
 
     layers = [
         client_layer,
