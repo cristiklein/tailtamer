@@ -5,7 +5,6 @@ and outputs results.
 """
 
 import collections
-from contextlib import contextmanager
 import csv
 import itertools
 import multiprocessing
@@ -15,7 +14,7 @@ import sys
 import simpy
 
 Result = collections.namedtuple('Result', 'arrival_rate method response_time')
-TraceItem = collections.namedtuple('TraceItem', 'who direction')
+TraceItem = collections.namedtuple('TraceItem', 'when who direction')
 
 def pairwise(iterable):
     "s -> (s0,s1), (s1,s2), (s2, s3), ..."
@@ -42,6 +41,25 @@ class NamedObject(object):
 
     def __str__(self):
         return self._name
+
+def _trace_request(instance_method):
+    """
+    Decorates an instance method to trace a request as it goes through the
+    distributed systems.  This decorator makes the following assumptions about
+    what it decorates:
+    - The instance has an `_env` attribute that points to a simulation
+      environment.
+    - The method has a `request` attribute that points to request to be traced.
+    """
+    # pylint: disable=protected-access
+    def wrapper(instance, request, *v, **k):
+        request.do_trace(who=instance, when=instance._env.now,
+                         direction='enter')
+        yield from instance_method(instance, request, *v, **k)
+        request.do_trace(who=instance, when=instance._env.now,
+                         direction='exit')
+    return wrapper
+
 
 class VirtualMachine(NamedObject):
     """
@@ -73,6 +91,7 @@ class VirtualMachine(NamedObject):
                              .format(scheduler, self.ALLOWED_SCHEDULERS))
         self._scheduler = scheduler
 
+    @_trace_request
     def execute(self, request, work):
         remaining_work = work
         if self._scheduler == 'fifo':
@@ -90,26 +109,25 @@ class VirtualMachine(NamedObject):
         else:
             raise NotImplementedError() # should never get here
 
-        with request.do_trace(self):
-            while remaining_work > 0:
-                with self._cpus.request(priority=priority, preempt=preempt) as req:
-                    yield req
-                    try:
-                        if self._scheduler == 'ps' or self._scheduler == 'tail-tamer-without-preemption':
-                            timeslice = 0.005
-                            work_to_do = min(timeslice, remaining_work)
-                        else:
-                            work_to_do = remaining_work
-                        if self._executor is None:
-                            yield self._env.timeout(work_to_do)
-                        else:
-                            yield self._env.process(self._executor.execute(request, work_to_do))
-                        remaining_work -= work_to_do
-                        self._cpu_time += work_to_do
-                    except simpy.Interrupt as interrupt:
-                        work_done = self._env.now - interrupt.cause.usage_since
-                        remaining_work -= work_done
-                        self._cpu_time += work_done
+        while remaining_work > 0:
+            with self._cpus.request(priority=priority, preempt=preempt) as req:
+                yield req
+                try:
+                    if self._scheduler == 'ps' or self._scheduler == 'tail-tamer-without-preemption':
+                        timeslice = 0.005
+                        work_to_do = min(timeslice, remaining_work)
+                    else:
+                        work_to_do = remaining_work
+                    if self._executor is None:
+                        yield self._env.timeout(work_to_do)
+                    else:
+                        yield self._env.process(self._executor.execute(request, work_to_do))
+                    remaining_work -= work_to_do
+                    self._cpu_time += work_to_do
+                except simpy.Interrupt as interrupt:
+                    work_done = self._env.now - interrupt.cause.usage_since
+                    remaining_work -= work_done
+                    self._cpu_time += work_done
 
     def _log(self, *args):
         print('{0:.6f}'.format(self._env.now), *args)
@@ -156,11 +174,8 @@ class Request(NamedObject):
 
     end_time = property(get_end_time, set_end_time)
 
-    @contextmanager
-    def do_trace(self, who):
-        self._trace.append(TraceItem(who=who, direction='enter'))
-        yield
-        self._trace.append(TraceItem(who=who, direction='exit'))
+    def do_trace(self, when, who, direction):
+        self._trace.append(TraceItem(when=when, who=who, direction=direction))
 
     @property
     def trace(self):
@@ -225,19 +240,19 @@ class MicroService(NamedObject):
     def connect_to(self, microservice):
         self._downstream_microservices.append(microservice)
 
+    @_trace_request
     def on_request(self, request):
-        with request.do_trace(self):
-            # TODO: Add variance; might be a command-line parameter.
-            demand = self._average_work
-            demand_between_calls = \
-                demand / (len(self._downstream_microservices)+1)
+        # TODO: Add variance; might be a command-line parameter.
+        demand = self._average_work
+        demand_between_calls = \
+            demand / (len(self._downstream_microservices)+1)
 
+        yield self._env.process(
+            self._compute(request, demand_between_calls))
+        for microservice in self._downstream_microservices:
+            yield self._env.process(microservice.on_request(request))
             yield self._env.process(
                 self._compute(request, demand_between_calls))
-            for microservice in self._downstream_microservices:
-                yield self._env.process(microservice.on_request(request))
-                yield self._env.process(
-                    self._compute(request, demand_between_calls))
 
     def _compute(self, request, demand):
         yield self._env.process(self._executor.execute(request, demand))
