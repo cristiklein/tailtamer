@@ -18,7 +18,7 @@ TraceItem = collections.namedtuple('TraceItem', 'when who direction')
 
 def pairwise(iterable):
     "s -> (s0,s1), (s1,s2), (s2, s3), ..."
-    a, b = itertools.tee(iterable)
+    a, b = itertools.tee(iterable) # pylint: disable=invalid-name
     next(b, None)
     return zip(a, b)
 
@@ -59,7 +59,6 @@ def _trace_request(instance_method):
         request.do_trace(who=instance, when=instance._env.now,
                          direction='exit')
     return wrapper
-
 
 class VirtualMachine(NamedObject):
     """
@@ -113,7 +112,8 @@ class VirtualMachine(NamedObject):
             with self._cpus.request(priority=priority, preempt=preempt) as req:
                 yield req
                 try:
-                    if self._scheduler == 'ps' or self._scheduler == 'tail-tamer-without-preemption':
+                    if self._scheduler in \
+                            ['ps', 'tail-tamer-without-preemption']:
                         timeslice = 0.005
                         work_to_do = min(timeslice, remaining_work)
                     else:
@@ -121,7 +121,8 @@ class VirtualMachine(NamedObject):
                     if self._executor is None:
                         yield self._env.timeout(work_to_do)
                     else:
-                        yield self._env.process(self._executor.execute(request, work_to_do))
+                        yield self._env.process(
+                            self._executor.execute(request, work_to_do))
                     remaining_work -= work_to_do
                     self._cpu_time += work_to_do
                 except simpy.Interrupt as interrupt:
@@ -146,8 +147,9 @@ class PhysicalMachine(VirtualMachine):
         super().__init__(*args, **kwargs)
         super().set_scheduler('ps')
 
-    def run_on(self, executor):
-        raise NotImplementedError("I'm not sure it makes sense to run PMs on something else")
+    # I'm not sure it makes sense to run PMs on something else. Maybe with
+    # rack-scale computing?
+    run_on = None
 
 class Request(NamedObject):
     """
