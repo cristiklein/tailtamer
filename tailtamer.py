@@ -82,7 +82,6 @@ class VirtualMachine(NamedObject):
 
         self._env = env
         self._cpus = simpy.PreemptiveResource(env, num_cpus)
-        self._num_cpus = num_cpus
         self._scheduler = 'fifo'
         self._executor = None
 
@@ -121,7 +120,7 @@ class VirtualMachine(NamedObject):
             with self._cpus.request(priority=priority, preempt=preempt) as req:
                 yield req
                 self._num_active_cpus += 1
-                assert self._num_active_cpus <= self._num_cpus, \
+                assert self._num_active_cpus <= self._cpus.capacity, \
                         "Weird! Attempt to execute more requests "+\
                         "concurrently then available CPUs. There "+\
                         "is a bug in the simulator."
