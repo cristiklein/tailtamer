@@ -223,8 +223,8 @@ class OpenLoopClient(object):
             self._downstream_microservice.on_request(request))
         request.end_time = self._env.now
         self._requests.append(request)
-        #for who, direction in request.trace:
-        #    print(who, direction)
+        #for when, who, direction in request.trace:
+        #    print('{0:.6f} {1!s:<6} {2}'.format(when, who, direction))
         #print()
 
     @property
