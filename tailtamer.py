@@ -250,6 +250,8 @@ class MicroService(NamedObject):
         self._executor = None
         self._downstream_microservices = []
 
+        self._total_work = 0
+
     def run_on(self, executor):
         self._executor = executor
 
