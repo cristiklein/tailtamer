@@ -73,8 +73,8 @@ class VirtualMachine(NamedObject):
     ALLOWED_SCHEDULERS = [
         'fifo',
         'ps',
-        'tail-tamer-without-preemption',
-        'tail-tamer-with-preemption'
+        'tt',
+        'tt+p'
     ]
 
     def __init__(self, env, num_cpus, prefix='vm', name=None):
@@ -107,10 +107,10 @@ class VirtualMachine(NamedObject):
         elif self._scheduler == 'ps':
             preempt = False
             priority = 0
-        elif self._scheduler == 'tail-tamer-without-preemption':
+        elif self._scheduler == 'tt':
             preempt = False
             priority = request.start_time
-        elif self._scheduler == 'tail-tamer-with-preemption':
+        elif self._scheduler == 'tt+p':
             preempt = True
             priority = request.start_time
         else:
@@ -126,7 +126,7 @@ class VirtualMachine(NamedObject):
                         "is a bug in the simulator."
                 try:
                     if self._scheduler in \
-                            ['ps', 'tail-tamer-without-preemption']:
+                            ['ps', 'tt']:
                         timeslice = 0.005
                         work_to_do = min(timeslice, remaining_work)
                     else:
@@ -411,8 +411,8 @@ def main(output_filename='results.csv'):
     methods = [
         'fifo',
         'ps',
-        'tail-tamer-without-preemption',
-        'tail-tamer-with-preemption',
+        'tt',
+        'tt+p',
     ]
 
     workers = multiprocessing.Pool() # pylint: disable=no-member
