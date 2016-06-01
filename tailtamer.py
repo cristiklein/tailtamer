@@ -360,17 +360,19 @@ def run_simulation(arrival_rate, method, physical_machines=1):
     #
     # HACK: Sanity check
     #
-    expected_cpu_time = len(response_times) * (0.001 + 0.001 + 0.010 + 0.100)
+    expected_cpu_time = sum([
+        us.total_work for layer in layers if layer is not client_layer
+        for us in layer])
 
     # Ensure VMs did not produce more CPU that requests could have consumed
     actual_vm_cpu_time = sum([vm.cpu_time for vm in virtual_machines])
     assert_almost_equal(actual_vm_cpu_time, expected_cpu_time,
-                      'VM CPU time check failed')
+                        'VM CPU time check failed')
 
     # Same for PMs
     actual_pm_cpu_time = sum([pm.cpu_time for pm in physical_machines])
     assert_almost_equal(actual_pm_cpu_time, expected_cpu_time,
-                      'PM CPU time check failed')
+                        'PM CPU time check failed')
 
     return [
         Result(
