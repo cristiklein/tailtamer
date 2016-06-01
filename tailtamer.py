@@ -240,11 +240,12 @@ class MicroService(NamedObject):
     Currently, the execution model assumes one thread is created for each
     request.
     """
-    def __init__(self, env, name, average_work):
+    def __init__(self, env, name, average_work, variance=None):
         super().__init__(prefix='µs', name=name)
 
         self._env = env
         self._average_work = average_work
+        self._variance = variance or (self._average_work / 10)
         self._executor = None
         self._downstream_microservices = []
 
@@ -258,8 +259,8 @@ class MicroService(NamedObject):
 
     @_trace_request
     def on_request(self, request):
-        # TODO: Add variance; might be a command-line parameter.
-        demand = self._average_work
+        demand = self._env.random.normalvariate(self._average_work,
+                                                self._variance)
         demand_between_calls = \
             demand / (len(self._downstream_microservices)+1)
 
