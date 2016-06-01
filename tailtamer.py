@@ -382,7 +382,7 @@ def main(output_filename='results.csv'):
     Simulate the system for each method and output results.
     """
 
-    arrival_rates = list(range(10, 70, 10)) + list(range(70, 80))
+    arrival_rates = range(70, 80)
     methods = [
         'fifo',
         'ps',
