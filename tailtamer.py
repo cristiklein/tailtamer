@@ -66,6 +66,46 @@ def _trace_request(instance_method):
                          direction='exit')
     return wrapper
 
+class Work(object):
+    """
+    Simulates work that has to be performed. Work must only be created by
+    microservices and consumed by lowest-level executors.
+    """
+    def __init__(self, env, work):
+        assert work >= 0
+
+        self._env = env
+        self._initial = work
+        self._remaining = work
+        self._process = None
+
+    def consume(self, max_work_to_consume):
+        assert max_work_to_consume > 0
+        assert self._process is None
+
+        self._process = self._env.active_process
+        work_to_consume = min(self._remaining, max_work_to_consume)
+        assert work_to_consume > 0
+        try:
+            started_at = self._env.now
+            yield self._env.timeout(work_to_consume)
+            self._remaining -= work_to_consume # no weird floating point
+        except simpy.Interrupt:
+            ended_at = self._env.now
+            self._remaining -= (ended_at-started_at)
+            raise
+        finally:
+            self._process = None
+
+    @property
+    def amount_consumed(self):
+        return self._initial-self._remaining
+
+    @property
+    def consumed(self):
+        return self._remaining == 0
+
+
 class VirtualMachine(NamedObject):
     """
     Simulates a virtual machine.
@@ -99,8 +139,7 @@ class VirtualMachine(NamedObject):
         self._scheduler = scheduler
 
     @_trace_request
-    def execute(self, request, work):
-        remaining_work = work
+    def execute(self, request, work, max_work_to_consume=float('inf')):
         if self._scheduler == 'fifo':
             preempt = False
             priority = 0
@@ -116,40 +155,45 @@ class VirtualMachine(NamedObject):
         else:
             raise NotImplementedError() # should never get here
 
-        while remaining_work > 0:
+        while not work.consumed:
             with self._cpus.request(priority=priority, preempt=preempt) as req:
+                request.do_trace(self._env.now, self, 'runnable')
                 yield req
+                request.do_trace(self._env.now, self, 'running')
                 self._num_active_cpus += 1
                 assert self._num_active_cpus <= self._cpus.capacity, \
                         "Weird! Attempt to execute more requests "+\
                         "concurrently than available CPUs. There "+\
                         "is a bug in the simulator."
+                if self._scheduler in \
+                        ['ps', 'tt']:
+                    timeslice = 0.005
+                else:
+                    timeslice = float('inf')
+
                 try:
-                    if self._scheduler in \
-                            ['ps', 'tt']:
-                        timeslice = 0.005
-                        work_to_do = min(timeslice, remaining_work)
-                    else:
-                        work_to_do = remaining_work
+                    amount_consumed_before = work.amount_consumed
                     if self._executor is None:
-                        yield self._env.timeout(work_to_do)
+                        yield from work.consume(timeslice)
                     else:
-                        yield self._env.process(
-                            self._executor.execute(request, work_to_do))
-                    remaining_work -= work_to_do
-                    self._cpu_time += work_to_do
+                        yield from self._executor.execute(request, work, timeslice)
                 except simpy.Interrupt as interrupt:
-                    work_done = self._env.now - interrupt.cause.usage_since
-                    remaining_work -= work_done
-                    self._cpu_time += work_done
-                self._num_active_cpus -= 1
+                    if interrupt.cause.resource == self._cpus:
+                        request.do_trace(self._env.now, self, 'preempted')
+                    else:
+                        request.do_trace(self._env.now, self, 'interrupted')
+                        raise
+                finally:
+                    self._cpu_time += \
+                         work.amount_consumed-amount_consumed_before
+                    self._num_active_cpus -= 1
 
     def _log(self, *args):
         print('{0:.6f}'.format(self._env.now), *args)
 
     @property
     def cpu_time(self):
-        # TODO: Inaccurate if called during a timeslice
+        # TODO: Inaccurate if called while work is consumed
         return self._cpu_time
 
 class PhysicalMachine(VirtualMachine):
@@ -275,7 +319,9 @@ class MicroService(NamedObject):
                     self._compute(request, demand_between_calls))
 
     def _compute(self, request, demand):
-        yield self._env.process(self._executor.execute(request, demand))
+        work = Work(self._env, demand)
+        yield self._env.process(self._executor.execute(request, work))
+        assert work.consumed
         self._total_work += demand
 
     @property

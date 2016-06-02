@@ -91,3 +91,31 @@ def test_tail_tamer_with_preemption():
     assert abs(requests[2].end_time - 3.100) < 0.001
 
     assert vm.cpu_time == 3
+
+def test_tail_tamer_with_preemption_nested():
+    env = simpy.Environment()
+    vm = tailtamer.VirtualMachine(env, num_cpus=1)
+    pm = tailtamer.PhysicalMachine(env, num_cpus=1)
+    vm.run_on(pm)
+    vm.set_scheduler('tt+p')
+    pm.set_scheduler('tt+p')
+
+    requests = []
+
+    generate_one_request(env, vm, requests,
+        start_time=0.000, this_vm_start_time=0.102)
+    generate_one_request(env, vm, requests,
+        start_time=0.001, this_vm_start_time=0.101)
+    generate_one_request(env, vm, requests,
+        start_time=0.002, this_vm_start_time=0.100)
+
+    env.run()
+
+    print([r.end_time for r in requests])
+
+    assert abs(requests[0].end_time - 1.102) < 0.001, requests[0].end_time
+    assert abs(requests[1].end_time - 2.102) < 0.001, requests[1].end_time
+    assert abs(requests[2].end_time - 3.100) < 0.001, requests[2].end_time
+
+    assert vm.cpu_time == 3
+    assert pm.cpu_time == 3, pm.cpu_time
