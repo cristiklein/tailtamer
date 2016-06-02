@@ -3,20 +3,26 @@ from .context import tailtamer
 import simpy
 import sys
 
+def generate_one_request(env, vm, requests, start_time=0, this_vm_start_time=0):
+    request = tailtamer.Request(start_time)
+    requests.append(request)
+
+    def proc():
+        yield env.timeout(this_vm_start_time)
+        work = tailtamer.Work(env, 1)
+        yield env.process(vm.execute(request, work))
+        request.end_time = env.now
+    
+    env.process(proc())
+
 def test_fifo():
     env = simpy.Environment()
     vm = tailtamer.VirtualMachine(env, num_cpus=1)
 
     requests = []
 
-    def generate_one_request():
-        request = tailtamer.Request(env.now)
-        yield env.process(vm.execute(request, 1))
-        request.end_time = env.now
-        requests.append(request)
-
-    env.process(generate_one_request())
-    env.process(generate_one_request())
+    generate_one_request(env, vm, requests)
+    generate_one_request(env, vm, requests)
 
     env.run()
 
@@ -35,14 +41,8 @@ def test_ps():
 
     requests = []
 
-    def generate_one_request():
-        request = tailtamer.Request(env.now)
-        yield env.process(vm.execute(request, 1))
-        request.end_time = env.now
-        requests.append(request)
-
-    env.process(generate_one_request())
-    env.process(generate_one_request())
+    generate_one_request(env, vm, requests)
+    generate_one_request(env, vm, requests)
 
     env.run()
 
@@ -61,17 +61,9 @@ def test_tail_tamer_without_preemption():
 
     requests = []
 
-    def generate_one_request(start_time, this_vm_start_time):
-        request = tailtamer.Request(start_time)
-        requests.append(request)
-
-        yield env.timeout(this_vm_start_time)
-        yield env.process(vm.execute(request, 1))
-        request.end_time = env.now
-
-    env.process(generate_one_request(start_time=0.000, this_vm_start_time=0.102))
-    env.process(generate_one_request(start_time=0.001, this_vm_start_time=0.101))
-    env.process(generate_one_request(start_time=0.002, this_vm_start_time=0.100))
+    generate_one_request(env, vm, requests, start_time=0.000, this_vm_start_time=0.102)
+    generate_one_request(env, vm, requests, start_time=0.001, this_vm_start_time=0.101)
+    generate_one_request(env, vm, requests, start_time=0.002, this_vm_start_time=0.100)
 
     env.run()
 
@@ -88,17 +80,9 @@ def test_tail_tamer_with_preemption():
 
     requests = []
 
-    def generate_one_request(start_time, this_vm_start_time):
-        request = tailtamer.Request(start_time)
-        requests.append(request)
-
-        yield env.timeout(this_vm_start_time)
-        yield env.process(vm.execute(request, 1))
-        request.end_time = env.now
-
-    env.process(generate_one_request(start_time=0.000, this_vm_start_time=0.102))
-    env.process(generate_one_request(start_time=0.001, this_vm_start_time=0.101))
-    env.process(generate_one_request(start_time=0.002, this_vm_start_time=0.100))
+    generate_one_request(env, vm, requests, start_time=0.000, this_vm_start_time=0.102)
+    generate_one_request(env, vm, requests, start_time=0.001, this_vm_start_time=0.101)
+    generate_one_request(env, vm, requests, start_time=0.002, this_vm_start_time=0.100)
 
     env.run()
 
