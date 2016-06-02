@@ -57,7 +57,7 @@ def test_ps():
 def test_tail_tamer_without_preemption():
     env = simpy.Environment()
     vm = tailtamer.VirtualMachine(env, num_cpus=1)
-    vm.set_scheduler('tail-tamer-without-preemption')
+    vm.set_scheduler('tt')
 
     requests = []
 
@@ -84,7 +84,7 @@ def test_tail_tamer_without_preemption():
 def test_tail_tamer_with_preemption():
     env = simpy.Environment()
     vm = tailtamer.VirtualMachine(env, num_cpus=1)
-    vm.set_scheduler('tail-tamer-with-preemption')
+    vm.set_scheduler('tt+p')
 
     requests = []
 
