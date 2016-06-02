@@ -191,6 +191,7 @@ class Request(NamedObject):
     end_time = property(get_end_time, set_end_time)
 
     def do_trace(self, when, who, direction):
+        #print('{0:.6f} {1!s:<6} {2} {3}'.format(when, who, self, direction))
         self._trace.append(TraceItem(when=when, who=who, direction=direction))
 
     @property
