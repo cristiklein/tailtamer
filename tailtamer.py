@@ -6,6 +6,7 @@ and outputs results.
 
 import collections
 import csv
+import decimal
 import itertools
 import multiprocessing
 import random
@@ -26,6 +27,11 @@ def pairwise(iterable):
 def pretty_kwds(kwds, sep=' '):
     "pretty_kwds(a=1, b=2) -> 'a=1 b=2'"
     return sep.join([str(k)+'='+str(v) for k,v in kwds.items()])
+
+def to_decimal_with_ns_prec(f):
+    "Returns a Decimal with nano-second precision"
+    return decimal.Context(prec=9, rounding=decimal.ROUND_DOWN).\
+        create_decimal(f)
 
 class NamedObject(object):
     """
@@ -93,12 +99,11 @@ class Work(object):
         try:
             started_at = self._env.now
             yield self._env.timeout(work_to_consume)
-            self._remaining -= work_to_consume # no weird floating point
         except simpy.Interrupt:
-            ended_at = self._env.now
-            self._remaining -= (ended_at-started_at)
             raise
         finally:
+            ended_at = self._env.now
+            self._remaining -= (ended_at-started_at)
             self._process = None
 
     @property
@@ -137,15 +142,19 @@ class VirtualMachine(NamedObject):
     def run_on(self, executor):
         self._executor = executor
 
-    def set_scheduler(self, scheduler, param=None):
+    def set_scheduler(self, scheduler, timeslice=None):
         if scheduler not in self.ALLOWED_SCHEDULERS:
             raise ValueError('Invalid scheduler {0}. Allowed schedulers: {1}'
                              .format(scheduler, self.ALLOWED_SCHEDULERS))
         self._scheduler = scheduler
-        self._scheduler_param = param
+        if timeslice is not None:
+            timeslice = self._env.to_time(timeslice)
+        self._scheduler_param = timeslice
 
     @_trace_request
-    def execute(self, request, work, max_work_to_consume=float('inf')):
+    def execute(self, request, work, max_work_to_consume='inf'):
+        max_work_to_consume = self._env.to_time(max_work_to_consume)
+
         if self._scheduler == 'fifo':
             preempt = False
             priority = 0
@@ -173,9 +182,10 @@ class VirtualMachine(NamedObject):
                         "is a bug in the simulator."
                 if self._scheduler in \
                         ['ps', 'tt']:
-                    timeslice = self._scheduler_param or 0.005
+                    timeslice = self._scheduler_param or \
+                        self._env.to_time('0.005')
                 else:
-                    timeslice = float('inf')
+                    timeslice = self._env.to_time('inf')
                 timeslice = min(timeslice, max_work_to_consume)
 
                 try:
@@ -270,7 +280,8 @@ class OpenLoopClient(object):
         while self._until is None \
                 or self._env.now < self._until:
             self._env.process(self._on_arrival())
-            waiting_time = self._env.random.expovariate(self._arrival_rate)
+            float_waiting_time = self._env.random.expovariate(self._arrival_rate)
+            waiting_time = self._env.to_time(float_waiting_time)
             yield self._env.timeout(waiting_time)
 
     def _on_arrival(self):
@@ -313,8 +324,9 @@ class MicroService(NamedObject):
 
     @_trace_request
     def on_request(self, request):
-        demand = self._env.random.normalvariate(self._average_work,
-                                                self._variance)
+        float_demand = self._env.random.normalvariate(self._average_work,
+                                                      self._variance)
+        demand = self._env.to_time(float_demand)
         demand_between_calls = \
             demand / (len(self._downstream_microservices)*self._degree+1)
 
@@ -336,11 +348,11 @@ class MicroService(NamedObject):
     def total_work(self):
         return self._total_work
 
-def assert_almost_equal(actual, expected, message, precision=0.001):
+def assert_equal(actual, expected, message):
     """
-    Asserts that two floating point values are within a small difference.
+    Asserts that two objects are equal.
     """
-    assert abs(actual-expected) < precision, \
+    assert actual==expected, \
         '{0}: actual {1}, expected {2}'.format(message, actual, expected)
 
 def run_simulation(
@@ -361,6 +373,7 @@ def run_simulation(
     env = simpy.Environment()
     env.random = random.Random()
     env.random.seed(1)
+    env.to_time = to_decimal_with_ns_prec
 
     #
     # Infrastructure layer
@@ -445,13 +458,13 @@ def run_simulation(
 
     # Ensure VMs did not produce more CPU that requests could have consumed
     actual_vm_cpu_time = sum([vm.cpu_time for vm in virtual_machines])
-    assert_almost_equal(actual_vm_cpu_time, expected_cpu_time,
-                        'VM CPU time check failed')
+    assert_equal(actual_vm_cpu_time, expected_cpu_time,
+                 'VM CPU time check failed')
 
     # Same for PMs
     actual_pm_cpu_time = sum([pm.cpu_time for pm in physical_machines])
-    assert_almost_equal(actual_pm_cpu_time, expected_cpu_time,
-                        'PM CPU time check failed')
+    assert_equal(actual_pm_cpu_time, expected_cpu_time,
+                 'PM CPU time check failed')
 
     return [
         Result(
@@ -471,14 +484,14 @@ def main(output_filename='results.csv'):
 
     arrival_rates = range(70, 80)
     method_param_tuples = [
-        ('fifo', None ),
-        ('ps'  , 0.005),
-        ('ps'  , 0.010),
-        ('ps'  , 0.020),
-        ('tt'  , 0.005),
-        ('tt'  , 0.010),
-        ('tt'  , 0.020),
-        ('tt+p', None ),
+        ('fifo', None   ),
+        ('ps'  , '0.005'),
+        ('ps'  , '0.010'),
+        ('ps'  , '0.020'),
+        ('tt'  , '0.005'),
+        ('tt'  , '0.010'),
+        ('tt'  , '0.020'),
+        ('tt+p', None   ),
     ]
 
     workers = multiprocessing.Pool() # pylint: disable=no-member
