@@ -23,6 +23,10 @@ def pairwise(iterable):
     next(b, None)
     return zip(a, b)
 
+def pretty_kwds(kwds, sep=' '):
+    "pretty_kwds(a=1, b=2) -> 'a=1 b=2'"
+    return sep.join([str(k)+'='+str(v) for k,v in kwds.items()])
+
 class NamedObject(object):
     """
     Gives classes a more human-friendly string identification as retrieved
@@ -123,6 +127,7 @@ class VirtualMachine(NamedObject):
         self._env = env
         self._cpus = simpy.PreemptiveResource(env, num_cpus)
         self._scheduler = 'fifo'
+        self._scheduler_param = None
         self._executor = None
 
         self._cpu_time = 0
@@ -132,11 +137,12 @@ class VirtualMachine(NamedObject):
     def run_on(self, executor):
         self._executor = executor
 
-    def set_scheduler(self, scheduler):
+    def set_scheduler(self, scheduler, param=None):
         if scheduler not in self.ALLOWED_SCHEDULERS:
             raise ValueError('Invalid scheduler {0}. Allowed schedulers: {1}'
                              .format(scheduler, self.ALLOWED_SCHEDULERS))
         self._scheduler = scheduler
+        self._scheduler_param = param
 
     @_trace_request
     def execute(self, request, work, max_work_to_consume=float('inf')):
@@ -167,7 +173,7 @@ class VirtualMachine(NamedObject):
                         "is a bug in the simulator."
                 if self._scheduler in \
                         ['ps', 'tt']:
-                    timeslice = 0.005
+                    timeslice = self._scheduler_param or 0.005
                 else:
                     timeslice = float('inf')
                 timeslice = min(timeslice, max_work_to_consume)
@@ -337,7 +343,13 @@ def assert_almost_equal(actual, expected, message, precision=0.001):
     assert abs(actual-expected) < precision, \
         '{0}: actual {1}, expected {2}'.format(message, actual, expected)
 
-def run_simulation(arrival_rate, method, physical_machines=1, seed=1):
+def run_simulation(
+        arrival_rate,
+        method,
+        method_param=None,
+        physical_machines=1,
+        seed=1,
+        ):
     """
     Wire the simulation entities together, run one simulation and collect
     results.
@@ -405,9 +417,9 @@ def run_simulation(arrival_rate, method, physical_machines=1, seed=1):
     # Configure schedulers
     #
     for physical_machine in physical_machines:
-        physical_machine.set_scheduler(method)
+        physical_machine.set_scheduler(method, method_param)
     for virtual_machine in virtual_machines:
-        virtual_machine.set_scheduler(method)
+        virtual_machine.set_scheduler(method, method_param)
 
     #
     # Run simulation
@@ -444,7 +456,8 @@ def run_simulation(arrival_rate, method, physical_machines=1, seed=1):
     return [
         Result(
             arrival_rate=arrival_rate,
-            method=method,
+            # HACK: maintain output file compatibility
+            method=method+str(method_param),
             response_time=response_time,
         )
         for response_time in response_times]
@@ -457,20 +470,27 @@ def main(output_filename='results.csv'):
     """
 
     arrival_rates = range(70, 80)
-    methods = [
-        'fifo',
-        'ps',
-        'tt',
-        'tt+p',
+    method_param_tuples = [
+        ('fifo', None ),
+        ('ps'  , 0.005),
+        ('ps'  , 0.010),
+        ('ps'  , 0.020),
+        ('tt'  , 0.005),
+        ('tt'  , 0.010),
+        ('tt'  , 0.020),
+        ('tt+p', None ),
     ]
 
     workers = multiprocessing.Pool() # pylint: disable=no-member
     futures = []
     for arrival_rate in arrival_rates:
-        for method in methods:
+        for method, param in method_param_tuples:
+            kwds = dict(arrival_rate=arrival_rate, method=method,
+                        method_param=param)
             future = workers.apply_async(
                 run_simulation,
-                kwds=dict(arrival_rate=arrival_rate, method=method))
+                kwds=kwds)
+            future.kwds = kwds
             futures.append(future)
 
     with open(output_filename, 'w') as output_file:
@@ -480,8 +500,7 @@ def main(output_filename='results.csv'):
 
         for future in futures:
             results = future.get()
-            print('completed: arrival_rate={0},method={1}'.format(
-                results[0].arrival_rate, results[1].method), file=sys.stderr)
+            print('completed:', pretty_kwds(future.kwds), file=sys.stderr)
             for result in results:
                 row = result._asdict() # pylint: disable=protected-access
                 writer.writerow(row)
