@@ -457,7 +457,7 @@ def run_simulation(
         Result(
             arrival_rate=arrival_rate,
             # HACK: maintain output file compatibility
-            method=method+str(method_param),
+            method=method+str(method_param or ''),
             response_time=response_time,
         )
         for response_time in response_times]
