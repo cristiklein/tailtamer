@@ -155,7 +155,7 @@ class VirtualMachine(NamedObject):
         else:
             raise NotImplementedError() # should never get here
 
-        while not work.consumed:
+        while max_work_to_consume > 0 and not work.consumed:
             with self._cpus.request(priority=priority, preempt=preempt) as req:
                 request.do_trace(self._env.now, self, 'runnable')
                 yield req
@@ -170,6 +170,7 @@ class VirtualMachine(NamedObject):
                     timeslice = 0.005
                 else:
                     timeslice = float('inf')
+                timeslice = min(timeslice, max_work_to_consume)
 
                 try:
                     amount_consumed_before = work.amount_consumed
@@ -184,8 +185,9 @@ class VirtualMachine(NamedObject):
                         request.do_trace(self._env.now, self, 'interrupted')
                         raise
                 finally:
-                    self._cpu_time += \
-                         work.amount_consumed-amount_consumed_before
+                    work_consumed = work.amount_consumed-amount_consumed_before
+                    self._cpu_time += work_consumed
+                    max_work_to_consume -= work_consumed
                     self._num_active_cpus -= 1
 
     def _log(self, *args):
