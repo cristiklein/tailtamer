@@ -423,7 +423,7 @@ def run_simulation(arrival_rate, method, physical_machines=1, seed=1):
     response_times = sum([client.response_times for client in client_layer], [])
 
     #
-    # HACK: Sanity check
+    # Sanity check
     #
     expected_cpu_time = sum([
         us.total_work for layer in layers if layer is not client_layer
