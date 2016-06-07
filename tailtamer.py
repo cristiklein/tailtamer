@@ -125,7 +125,7 @@ class VirtualMachine(NamedObject):
         'fifo',
         'ps',
         'tt',
-        'tt+p'
+        'tt+p',
     ]
 
     def __init__(self, env, num_cpus, prefix='vm', name=None):
