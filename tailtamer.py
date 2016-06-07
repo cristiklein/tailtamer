@@ -149,53 +149,56 @@ class VirtualMachine(NamedObject):
             raise ValueError('Invalid scheduler {0}. Allowed schedulers: {1}'
                              .format(scheduler, self.ALLOWED_SCHEDULERS))
         self._scheduler = scheduler
-        if timeslice is not None:
-            timeslice = self._env.to_time(timeslice)
-        self._scheduler_param = timeslice
+        if timeslice is None:
+            if scheduler in ['ps', 'tt']:
+                timeslice = '0.005'
+            else:
+                timeslice = 'inf'
+        self._scheduler_param = self._env.to_time(timeslice)
 
-    @_trace_request
+    #@_trace_request
     def execute(self, request, work, max_work_to_consume='inf'):
         max_work_to_consume = self._env.to_time(max_work_to_consume)
+        executor = self._executor
+        scheduler = self._scheduler
+        cpus = self._cpus
+        timeslice = self._scheduler_param
 
-        if self._scheduler == 'fifo':
+        if scheduler == 'fifo':
             preempt = False
             priority = 0
-        elif self._scheduler == 'ps':
+        elif scheduler == 'ps':
             preempt = False
             priority = 0
-        elif self._scheduler == 'tt':
+        elif scheduler == 'tt':
             preempt = False
             priority = request.start_time
-        elif self._scheduler == 'tt+p':
+        elif scheduler == 'tt+p':
             preempt = True
             priority = request.start_time
         else:
             raise NotImplementedError() # should never get here
 
         while max_work_to_consume > 0 and not work.consumed:
-            with self._cpus.request(priority=priority, preempt=preempt) as req:
-                yield req
-                self._num_active_cpus += 1
-                assert self._num_active_cpus <= self._cpus.capacity, \
+            with cpus.request(priority=priority, preempt=preempt) as req:
+                work_to_consume = min(timeslice, max_work_to_consume)
+
+                try:
+                    yield req
+                    self._num_active_cpus += 1
+                    assert self._num_active_cpus <= cpus.capacity, \
                         "Weird! Attempt to execute more requests "+\
                         "concurrently than available CPUs. There "+\
                         "is a bug in the simulator."
-                if self._scheduler in \
-                        ['ps', 'tt']:
-                    timeslice = self._scheduler_param or \
-                        self._env.to_time('0.005')
-                else:
-                    timeslice = self._env.to_time('inf')
-                timeslice = min(timeslice, max_work_to_consume)
 
-                try:
                     amount_consumed_before = work.amount_consumed
-                    if self._executor is None:
-                        yield from work.consume(timeslice)
+                    if executor is None:
+                        yield from work.consume(work_to_consume)
                     else:
-                        yield from self._executor.execute(request, work, timeslice)
+                        yield from executor.execute(request, work,
+                                work_to_consume)
                 except simpy.Interrupt as interrupt:
-                    if interrupt.cause.resource == self._cpus:
+                    if interrupt.cause.resource == cpus:
                         pass
                     else:
                         raise
