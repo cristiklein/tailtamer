@@ -500,10 +500,7 @@ def main(output_filename='results.csv'):
     method_param_tuples = [
         ('fifo', None   ),
         ('ps'  , '0.005'),
-        ('ps'  , '0.010'),
-        ('ps'  , '0.020'),
         ('tt'  , '0.005'),
-        ('tt'  , '0.010'),
         ('tt'  , '0.020'),
         ('tt+p', None   ),
     ]
