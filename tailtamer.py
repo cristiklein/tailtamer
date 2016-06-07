@@ -184,6 +184,8 @@ class VirtualMachine(NamedObject):
                 work_to_consume = min(timeslice, max_work_to_consume)
 
                 try:
+                    amount_consumed_before = work.amount_consumed
+
                     yield req
                     self._num_active_cpus += 1
                     assert self._num_active_cpus <= cpus.capacity, \
@@ -191,7 +193,6 @@ class VirtualMachine(NamedObject):
                         "concurrently than available CPUs. There "+\
                         "is a bug in the simulator."
 
-                    amount_consumed_before = work.amount_consumed
                     if executor is None:
                         yield from work.consume(work_to_consume)
                     else:
