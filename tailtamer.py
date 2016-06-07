@@ -28,7 +28,7 @@ def pairwise(iterable):
 
 def pretty_kwds(kwds, sep=' '):
     "pretty_kwds(a=1, b=2) -> 'a=1 b=2'"
-    return sep.join([str(k)+'='+str(v) for k,v in kwds.items()])
+    return sep.join(sorted([str(k)+'='+str(v) for k,v in kwds.items()]))
 
 def to_decimal_with_ns_prec(f):
     "Returns a Decimal with nano-second precision"
