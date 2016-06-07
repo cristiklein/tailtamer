@@ -174,9 +174,7 @@ class VirtualMachine(NamedObject):
 
         while max_work_to_consume > 0 and not work.consumed:
             with self._cpus.request(priority=priority, preempt=preempt) as req:
-                request.do_trace(self._env.now, self, 'runnable')
                 yield req
-                request.do_trace(self._env.now, self, 'running')
                 self._num_active_cpus += 1
                 assert self._num_active_cpus <= self._cpus.capacity, \
                         "Weird! Attempt to execute more requests "+\
@@ -198,9 +196,8 @@ class VirtualMachine(NamedObject):
                         yield from self._executor.execute(request, work, timeslice)
                 except simpy.Interrupt as interrupt:
                     if interrupt.cause.resource == self._cpus:
-                        request.do_trace(self._env.now, self, 'preempted')
+                        pass
                     else:
-                        request.do_trace(self._env.now, self, 'interrupted')
                         raise
                 finally:
                     work_consumed = work.amount_consumed-amount_consumed_before
