@@ -487,6 +487,7 @@ def run_simulation(
             # HACK: maintain output file compatibility
             method=method+str(method_param or ''),
             response_time=response_time,
+            seed=seed,
         )
         for response_time in response_times]
 
