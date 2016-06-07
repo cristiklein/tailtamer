@@ -518,7 +518,7 @@ def main(output_filename='results.csv'):
         ('tt'  , '0.020'),
         ('tt+p', None   ),
     ]
-    seeds = range(5)
+    seeds = [1]
 
     workers = multiprocessing.Pool() # pylint: disable=no-member
     futures = []
