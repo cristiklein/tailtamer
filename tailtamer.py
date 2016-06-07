@@ -17,7 +17,8 @@ import traceback
 
 import simpy
 
-Result = collections.namedtuple('Result', 'arrival_rate method response_time')
+Result = collections.namedtuple('Result',
+    'arrival_rate method response_time seed')
 TraceItem = collections.namedtuple('TraceItem', 'when who direction')
 
 def pairwise(iterable):
