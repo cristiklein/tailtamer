@@ -9,7 +9,9 @@ run:
 
 plot:
 	R --vanilla < plot-results.R
-	xdg-open Rplots.pdf
+	if [ -n "$$DISPLAY" ]; then \
+		xdg-open Rplots.pdf; \
+	fi
 
 init:
 	pip3 install -r requirements.txt
