@@ -5,7 +5,7 @@ help:
 	$(ECHO) $(MAKE) plot => plot results
 
 run:
-	python3 -m tailtamer
+	python3 -OO -m tailtamer
 
 plot:
 	R --vanilla < plot-results.R
