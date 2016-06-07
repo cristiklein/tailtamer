@@ -284,7 +284,8 @@ class OpenLoopClient(object):
         while self._until is None \
                 or self._env.now < self._until:
             self._env.process(self._on_arrival())
-            float_waiting_time = self._random.expovariate(self._arrival_rate)
+            float_waiting_time = \
+                max(self._random.expovariate(self._arrival_rate), 0)
             waiting_time = self._env.to_time(float_waiting_time)
             yield self._env.timeout(waiting_time)
 
