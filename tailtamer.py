@@ -309,7 +309,7 @@ class MicroService(NamedObject):
     Currently, the execution model assumes one thread is created for each
     request.
     """
-    def __init__(self, env, name, average_work, degree=1, variance=None):
+    def __init__(self, env, name, average_work, seed='', degree=1, variance=None):
         super().__init__(prefix='µs', name=name)
 
         self._env = env
@@ -319,7 +319,7 @@ class MicroService(NamedObject):
         self._downstream_microservices = []
         self._degree = degree
         self._random = random.Random()
-        self._random.seed(str(self))
+        self._random.seed(str(self)+str(seed))
 
         self._total_work = 0
 
@@ -391,11 +391,21 @@ def run_simulation(
     #
     # Software layer
     #
-    client_layer = [OpenLoopClient(env, arrival_rate=arrival_rate, until=100)]
-    frontend_layer = [MicroService(env, name='fe0', average_work=0.001)]
-    caching_layer = [MicroService(env, name='ca0', average_work=0.001)]
-    business_layer = [MicroService(env, name='bu0', average_work=0.010, degree=3)]
-    persistence_layer = [MicroService(env, name='pe0', average_work=0.030)]
+    client_layer = [
+        OpenLoopClient(env, seed=seed, arrival_rate=arrival_rate, until=100),
+    ]
+    frontend_layer = [
+        MicroService(env, seed=seed, name='fe0', average_work=0.001, degree=3),
+    ]
+    caching_layer = [
+        MicroService(env, seed=seed, name='ca0', average_work=0.001),
+    ]
+    business_layer = [
+        MicroService(env, seed=seed, name='bu0', average_work=0.010, degree=3),
+    ]
+    persistence_layer = [
+        MicroService(env, seed=seed, name='pe0', average_work=0.010),
+    ]
 
     layers = [
         client_layer,
@@ -505,18 +515,20 @@ def main(output_filename='results.csv'):
         ('tt'  , '0.020'),
         ('tt+p', None   ),
     ]
+    seeds = range(5)
 
     workers = multiprocessing.Pool() # pylint: disable=no-member
     futures = []
     for arrival_rate in arrival_rates:
         for method, param in method_param_tuples:
-            kwds = dict(arrival_rate=arrival_rate, method=method,
-                        method_param=param)
-            future = workers.apply_async(
-                run_simulation,
-                kwds=kwds)
-            future.kwds = kwds
-            futures.append(future)
+            for seed in seeds:
+                kwds = dict(arrival_rate=arrival_rate, method=method,
+                            method_param=param, seed=seed)
+                future = workers.apply_async(
+                    run_simulation,
+                    kwds=kwds)
+                future.kwds = kwds
+                futures.append(future)
 
     with open(output_filename, 'w') as output_file:
         fieldnames = Result._fields # pylint: disable=protected-access
