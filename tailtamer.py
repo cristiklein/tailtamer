@@ -8,9 +8,11 @@ import collections
 import csv
 import decimal
 import itertools
+import logging
 import multiprocessing
 import random
 import sys
+import time
 import traceback
 
 import simpy
@@ -484,6 +486,16 @@ def main(output_filename='results.csv'):
     Simulate the system for each method and output results.
     """
 
+    logger = logging.getLogger('tailtamer')
+    logger.setLevel(logging.DEBUG)
+    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    ch = logging.StreamHandler()
+    ch.setFormatter(formatter)
+    logger.addHandler(ch)
+
+    started_at = time.time()
+    logger.info('Starting simulations')
+
     arrival_rates = range(70, 80)
     method_param_tuples = [
         ('fifo', None   ),
@@ -515,10 +527,13 @@ def main(output_filename='results.csv'):
 
         for future in futures:
             results = future.get()
-            print('completed:', pretty_kwds(future.kwds), file=sys.stderr)
+            logger.info('Simulation completed: %s', pretty_kwds(future.kwds))
             for result in results:
                 row = result._asdict() # pylint: disable=protected-access
                 writer.writerow(row)
+
+    ended_at = time.time()
+    logger.info('Simulations completed in %f seconds', ended_at-started_at)
 
 if __name__ == "__main__":
     main()
