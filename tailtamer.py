@@ -603,9 +603,9 @@ def explore_param(output_filename, name, values, output_name=None,
                 writer.writerow(row)
 
 def with_relative_variance(template_layers_config, relative_variance):
-    layers_config = copy.deepcopy(template_layers_config)
-    for layer_config in layers_config:
-        layer_config._replace(relative_variance=relative_variance)
+    layers_config = [
+        layer_config._replace(relative_variance=relative_variance) for
+        layer_config in template_layers_config ]
     return layers_config
 
 def main():
