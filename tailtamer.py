@@ -17,8 +17,7 @@ import traceback
 
 import simpy
 
-Result = collections.namedtuple('Result',
-    'arrival_rate method response_time seed')
+Result = collections.namedtuple('Result', 'response_time')
 TraceItem = collections.namedtuple('TraceItem', 'when who direction')
 
 def pairwise(iterable):
@@ -491,16 +490,50 @@ def run_simulation(
 
     return [
         Result(
-            arrival_rate=arrival_rate,
-            # HACK: maintain output file compatibility
-            method=method+str(method_param or ''),
             response_time=response_time,
-            seed=seed,
         )
         for response_time in response_times]
 
+def explore_param(output_filename, name, values):
+    logger = logging.getLogger('tailtamer')
+    logger.info("Exploring %s for %s", name,
+        ' '.join([str(value) for value in values]))
 
-def main(output_filename='results.csv'):
+    method_param_tuples = [
+        ('ps'  , '0.005'),
+        ('ps'  , 'Inf'  ),
+        ('tt'  , '0.005'),
+        ('tt'  , '0.020'),
+        ('tt+p', None   ),
+    ]
+
+    workers = multiprocessing.Pool() # pylint: disable=no-member
+    futures = []
+    for method, param in method_param_tuples:
+        for value in values:
+            kwds = dict(method=method, method_param=param)
+            kwds[name] = value
+            future = workers.apply_async(
+                run_simulation,
+                kwds=kwds)
+            future.kwds = kwds
+            futures.append(future)
+
+    with open(output_filename, 'w') as output_file:
+        fieldnames = list(kwds.keys())
+        fieldnames += Result._fields # pylint: disable=protected-access
+        writer = csv.DictWriter(output_file, fieldnames=fieldnames)
+        writer.writeheader()
+
+        for future in futures:
+            results = future.get()
+            logger.info('Simulation completed: %s', pretty_kwds(future.kwds))
+            for result in results:
+                row = result._asdict() # pylint: disable=protected-access
+                row.update(future.kwds)
+                writer.writerow(row)
+
+def main():
     """
     Entry-point for simulator.
     Simulate the system for each method and output results.
@@ -516,45 +549,7 @@ def main(output_filename='results.csv'):
     started_at = time.time()
     logger.info('Starting simulations')
 
-    arrival_rates = [140, 145, 150, 155]
-    method_param_tuples = [
-        ('ps'  , '0.005'),
-        ('ps'  , 'Inf'  ),
-        ('tt'  , '0.005'),
-        ('tt'  , '0.020'),
-        ('tt+p', None   ),
-    ]
-    relative_variances = [0, 0.05, 0.1, 0.2]
-    outdegrees = [1, 2, 3, 4, 5]
-    multiplicity = [1, 2, 3, 4, 5]
-    seeds = [1]
-
-    workers = multiprocessing.Pool() # pylint: disable=no-member
-    futures = []
-    for arrival_rate in arrival_rates:
-        for method, param in method_param_tuples:
-            for seed in seeds:
-                kwds = dict(
-                    arrival_rate=arrival_rate,
-                    method=method,
-                            method_param=param, seed=seed)
-                future = workers.apply_async(
-                    run_simulation,
-                    kwds=kwds)
-                future.kwds = kwds
-                futures.append(future)
-
-    with open(output_filename, 'w') as output_file:
-        fieldnames = Result._fields # pylint: disable=protected-access
-        writer = csv.DictWriter(output_file, fieldnames=fieldnames)
-        writer.writeheader()
-
-        for future in futures:
-            results = future.get()
-            logger.info('Simulation completed: %s', pretty_kwds(future.kwds))
-            for result in results:
-                row = result._asdict() # pylint: disable=protected-access
-                writer.writerow(row)
+    explore_param('results-ar.csv', 'arrival_rate', [140, 145, 150, 155])
 
     ended_at = time.time()
     logger.info('Simulations completed in %f seconds', ended_at-started_at)
