@@ -360,11 +360,25 @@ def assert_equal(actual, expected, message):
     assert actual==expected, \
         '{0}: actual {1}, expected {2}'.format(message, actual, expected)
 
+Layer = collections.namedtuple('Layer',
+    'average_work relative_variance degree multiplicity')
+
 def run_simulation(
-        arrival_rate,
         method,
         method_param=None,
+        arrival_rate=155,
+        layer_configs=[
+            Layer(average_work=0.001, relative_variance=0, degree=1,
+                multiplicity=1),
+            Layer(average_work=0.001, relative_variance=0, degree=1,
+                multiplicity=1),
+            Layer(average_work=0.010, relative_variance=0, degree=1,
+                multiplicity=1),
+            Layer(average_work=0.088, relative_variance=0, degree=1,
+                multiplicity=1),
+        ],
         physical_machines=1,
+        simulation_duration=100,
         seed=1,
         ):
     """
@@ -390,28 +404,24 @@ def run_simulation(
     # Software layer
     #
     client_layer = [
-        OpenLoopClient(env, seed=seed, arrival_rate=arrival_rate, until=100),
-    ]
-    frontend_layer = [
-        MicroService(env, seed=seed, name='fe0', average_work=0.100, variance=0),
-    ]
-    caching_layer = [
-        MicroService(env, seed=seed, name='ca0', average_work=0.001, variance=0),
-    ]
-    business_layer = [
-        MicroService(env, seed=seed, name='bu0', average_work=0.010, degree=3, variance=0),
-    ]
-    persistence_layer = [
-        MicroService(env, seed=seed, name='pe0', average_work=0.010, variance=0),
+        OpenLoopClient(env, seed=seed, arrival_rate=arrival_rate,
+            until=simulation_duration),
     ]
 
-    layers = [
-        client_layer,
-        frontend_layer,
-        #caching_layer,
-        #business_layer,
-        #persistence_layer,
-    ]
+    layers = []
+    layers.append(client_layer)
+    for c in layer_configs:
+        layer = []
+        for _ in range(c.multiplicity):
+            microservice = MicroService(
+                env, seed=seed,
+                name='l{0}us{0}',
+                average_work=c.average_work,
+                variance=c.average_work*c.relative_variance,
+                degree=c.degree,
+            )
+            layer.append(microservice)
+        layers.append(layer)
 
     #
     # Horizontal wiring
