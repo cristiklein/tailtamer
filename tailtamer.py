@@ -5,6 +5,7 @@ and outputs results.
 """
 
 import collections
+import copy
 import csv
 import decimal
 import itertools
@@ -601,6 +602,12 @@ def explore_param(output_filename, name, values, output_name=None,
                 row.update(future.kwds)
                 writer.writerow(row)
 
+def with_relative_variance(template_layers_config, relative_variance):
+    layers_config = copy.deepcopy(template_layers_config)
+    for layer_config in layers_config:
+        layer_config._replace(relative_variance=relative_variance)
+    return layers_config
+
 def main():
     """
     Entry-point for simulator.
@@ -619,6 +626,17 @@ def main():
     logger.info('Starting simulations')
 
     explore_param('results-ar.csv', 'arrival_rate', [140, 145, 150, 155])
+    
+    # Variance
+    explore_param('results-var.csv', 'layers_config',
+        [
+            with_relative_variance(DEFAULT_LAYERS_CONFIG, 0.00),
+            with_relative_variance(DEFAULT_LAYERS_CONFIG, 0.05),
+            with_relative_variance(DEFAULT_LAYERS_CONFIG, 0.10),
+            with_relative_variance(DEFAULT_LAYERS_CONFIG, 0.20),
+        ],
+        output_name='relative_variance',
+        output_values=['0%', '5%', '10%', '20%'])
 
     ended_at = time.time()
     logger.info('Simulations completed in %f seconds', ended_at-started_at)
