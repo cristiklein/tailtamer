@@ -423,7 +423,7 @@ def assert_equal(actual, expected, message):
 Layer = collections.namedtuple(
     'Layer', 'average_work relative_variance degree multiplicity')
 
-DEFAULT_LAYER_CONFIGS = (
+DEFAULT_LAYERS_CONFIG = (
     Layer(average_work=0.001, relative_variance=0, degree=1, multiplicity=1),
     Layer(average_work=0.001, relative_variance=0, degree=1, multiplicity=1),
     Layer(average_work=0.010, relative_variance=0, degree=1, multiplicity=1),
@@ -434,7 +434,7 @@ def run_simulation(
         method,
         method_param=None,
         arrival_rate=155,
-        layer_configs=DEFAULT_LAYER_CONFIGS,
+        layers_config=DEFAULT_LAYERS_CONFIG,
         physical_machines=1,
         simulation_duration=100,
         seed=1,
@@ -467,7 +467,7 @@ def run_simulation(
     ]
 
     layers = []
-    for c in layer_configs: # pylint: disable=invalid-name
+    for c in layers_config: # pylint: disable=invalid-name
         layer = []
         for _ in range(c.multiplicity):
             microservice = MicroService(
