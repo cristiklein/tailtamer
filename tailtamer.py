@@ -636,7 +636,7 @@ def main():
             with_relative_variance(DEFAULT_LAYERS_CONFIG, 0.20),
         ],
         output_name='relative_variance',
-        output_values=['0%', '5%', '10%', '20%'])
+        output_values=[0.00, 0.05, 0.010, 0.20])
 
     ended_at = time.time()
     logger.info('Simulations completed in %f seconds', ended_at-started_at)
