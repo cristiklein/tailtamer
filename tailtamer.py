@@ -548,15 +548,21 @@ def run_simulation(
         )
         for response_time in response_times]
 
-def explore_param(output_filename, name, values):
+def explore_param(output_filename, name, values, output_name=None,
+        output_values=None):
     """
     Runs several simulations for all scheduling methods, varying the given
     parameter along the given values, writing the results to the given output
     filename.
     """
+    if output_name is None:
+        output_name = name
+    if output_values is None:
+        output_values = values
+
     logger = logging.getLogger('tailtamer')
-    logger.info("Exploring %s for %s", name,
-                ' '.join([str(value) for value in values]))
+    logger.info("Exploring %s for %s", output_name,
+                ' '.join([str(value) for value in output_values]))
 
     method_param_tuples = [
         ('ps'  , '0.005'), # pylint: disable=bad-whitespace
@@ -568,20 +574,21 @@ def explore_param(output_filename, name, values):
 
     workers = multiprocessing.Pool() # pylint: disable=no-member
     futures = []
-    for method, param in method_param_tuples:
-        for value in values:
-            kwds = dict(method=method, method_param=param)
+    for method, method_param in method_param_tuples:
+        for value, output_value in zip(values, output_values):
+            kwds = dict(method=method, method_param=method_param)
             kwds[name] = value
             future = workers.apply_async(
                 run_simulation,
                 kwds=kwds)
             future.kwds = dict(kwds)
             future.kwds['method'] = \
-                method + ('_' + str(param) if param else '')
+                method + ('_' + str(method_param) if method_param else '')
+            future.kwds[output_name] = output_value
             futures.append(future)
 
     with open(output_filename, 'w') as output_file:
-        fieldnames = list(kwds.keys())
+        fieldnames = list(future.kwds.keys())
         fieldnames += Result._fields # pylint: disable=protected-access
         writer = csv.DictWriter(output_file, fieldnames=fieldnames)
         writer.writeheader()
