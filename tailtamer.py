@@ -123,7 +123,6 @@ class VirtualMachine(NamedObject):
     Simulates a virtual machine.
     """
     ALLOWED_SCHEDULERS = [
-        'fifo',
         'ps',
         'tt',
         'tt+p',
@@ -134,8 +133,8 @@ class VirtualMachine(NamedObject):
 
         self._env = env
         self._cpus = simpy.PreemptiveResource(env, num_cpus)
-        self._scheduler = 'fifo'
-        self._scheduler_param = None
+        self._scheduler = 'ps'
+        self._scheduler_param = 0.005
         self._executor = None
 
         self._cpu_time = 0
@@ -165,10 +164,7 @@ class VirtualMachine(NamedObject):
         cpus = self._cpus
         timeslice = self._scheduler_param
 
-        if scheduler == 'fifo':
-            preempt = False
-            priority = 0
-        elif scheduler == 'ps':
+        if scheduler == 'ps':
             preempt = False
             priority = 0
         elif scheduler == 'tt':
@@ -513,7 +509,7 @@ def main(output_filename='results.csv'):
     arrival_rates = [140, 145, 150, 155]
     method_param_tuples = [
         ('ps'  , '0.005'),
-        ('fifo', None   ),
+        ('ps'  , 'Inf'  ),
         ('tt'  , '0.005'),
         ('tt'  , '0.020'),
         ('tt+p', None   ),
