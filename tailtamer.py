@@ -397,24 +397,24 @@ def run_simulation(
         OpenLoopClient(env, seed=seed, arrival_rate=arrival_rate, until=100),
     ]
     frontend_layer = [
-        MicroService(env, seed=seed, name='fe0', average_work=0.001, degree=3),
+        MicroService(env, seed=seed, name='fe0', average_work=0.100, variance=0),
     ]
     caching_layer = [
-        MicroService(env, seed=seed, name='ca0', average_work=0.001),
+        MicroService(env, seed=seed, name='ca0', average_work=0.001, variance=0),
     ]
     business_layer = [
-        MicroService(env, seed=seed, name='bu0', average_work=0.010, degree=3),
+        MicroService(env, seed=seed, name='bu0', average_work=0.010, degree=3, variance=0),
     ]
     persistence_layer = [
-        MicroService(env, seed=seed, name='pe0', average_work=0.010),
+        MicroService(env, seed=seed, name='pe0', average_work=0.010, variance=0),
     ]
 
     layers = [
         client_layer,
         frontend_layer,
-        caching_layer,
-        business_layer,
-        persistence_layer,
+        #caching_layer,
+        #business_layer,
+        #persistence_layer,
     ]
 
     #
@@ -436,7 +436,7 @@ def run_simulation(
             # Clients come with their own infrastructure
             continue
         for microservice in layer:
-            virtual_machine = VirtualMachine(env, num_cpus=8)
+            virtual_machine = VirtualMachine(env, num_cpus=16)
             virtual_machine.name = 'vm_' + str(microservice)
             microservice.run_on(virtual_machine)
             # TODO: Optionally add a VM to PM mapping algorithm.
@@ -510,14 +510,17 @@ def main(output_filename='results.csv'):
     started_at = time.time()
     logger.info('Starting simulations')
 
-    arrival_rates = range(70, 80)
+    arrival_rates = [140, 145, 150, 155]
     method_param_tuples = [
-        ('fifo', None   ),
         ('ps'  , '0.005'),
+        ('fifo', None   ),
         ('tt'  , '0.005'),
         ('tt'  , '0.020'),
         ('tt+p', None   ),
     ]
+    relative_variances = [0, 0.05, 0.1, 0.2]
+    outdegrees = [1, 2, 3, 4, 5]
+    multiplicity = [1, 2, 3, 4, 5]
     seeds = [1]
 
     workers = multiprocessing.Pool() # pylint: disable=no-member
@@ -525,7 +528,9 @@ def main(output_filename='results.csv'):
     for arrival_rate in arrival_rates:
         for method, param in method_param_tuples:
             for seed in seeds:
-                kwds = dict(arrival_rate=arrival_rate, method=method,
+                kwds = dict(
+                    arrival_rate=arrival_rate,
+                    method=method,
                             method_param=param, seed=seed)
                 future = workers.apply_async(
                     run_simulation,
