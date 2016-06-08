@@ -28,12 +28,12 @@ def pairwise(iterable):
 
 def pretty_kwds(kwds, sep=' '):
     "pretty_kwds(a=1, b=2) -> 'a=1 b=2'"
-    return sep.join(sorted([str(k)+'='+str(v) for k,v in kwds.items()]))
+    return sep.join(sorted([str(k)+'='+str(v) for k, v in kwds.items()]))
 
-def to_decimal_with_ns_prec(f):
+def to_decimal_with_ns_prec(number):
     "Returns a Decimal with nano-second precision"
     return decimal.Context(prec=9, rounding=decimal.ROUND_DOWN).\
-        create_decimal(f)
+        create_decimal(number)
 
 class NamedObject(object):
     """
@@ -50,9 +50,11 @@ class NamedObject(object):
             self._name = name
 
     def get_name(self):
+        "Get the current name (same as __str__)"
         return self._name
 
     def set_name(self, name):
+        "Sets a new name"
         self._name = name
 
     name = property(get_name, set_name)
@@ -71,6 +73,10 @@ def _trace_request(instance_method):
     """
     # pylint: disable=protected-access
     def wrapper(instance, request, *v, **k):
+        """
+        Wraps a SimPy-style generator-based process, marking entry and exit of a
+        request.
+        """
         request.do_trace(who=instance, when=instance._env.now,
                          direction='enter')
         yield from instance_method(instance, request, *v, **k)
@@ -92,6 +98,12 @@ class Work(object):
         self._process = None
 
     def consume(self, max_work_to_consume):
+        """
+        Consumes work, i.e., sleeps for a given maximum amount of time.  Work is
+        currently equal to time, but may in future be modulated, e.g., due to
+        frequency scaling. The method returns as soon as either all work is
+        consumed or the maximum amount, given as parameter, is reached.
+        """
         assert max_work_to_consume > 0
         assert self._process is None
 
@@ -110,10 +122,17 @@ class Work(object):
 
     @property
     def amount_consumed(self):
+        """
+        Returns the amount of work consumed so far. We try not to return the
+        amount of work remaining, to hide this information from the scheduler.
+        """
         return self._initial-self._remaining
 
     @property
     def consumed(self):
+        """
+        Returns True if this work item was fully consumed, False otherwise.
+        """
         return self._remaining == 0
 
 
@@ -132,8 +151,7 @@ class VirtualMachine(NamedObject):
 
         self._env = env
         self._cpus = simpy.PreemptiveResource(env, num_cpus)
-        self._scheduler = 'ps'
-        self._scheduler_param = 0.005
+        self._scheduler = ('ps', 0.005)
         self._executor = None
 
         self._cpu_time = 0
@@ -141,27 +159,38 @@ class VirtualMachine(NamedObject):
         self._num_active_cpus = 0
 
     def run_on(self, executor):
+        """
+        Sets the executor (usually a PhysicalMachine) on which this
+        VirtualMachine should run. If not executor is given, then the
+        VirtualMachine bahaves just like a physical one.
+        """
         self._executor = executor
 
     def set_scheduler(self, scheduler, timeslice=None):
+        """
+        Sets a CPU scheduler and some scheduling parameters.
+        """
         if scheduler not in self.ALLOWED_SCHEDULERS:
             raise ValueError('Invalid scheduler {0}. Allowed schedulers: {1}'
                              .format(scheduler, self.ALLOWED_SCHEDULERS))
-        self._scheduler = scheduler
         if timeslice is None:
             if scheduler in ['ps', 'tt']:
                 timeslice = '0.005'
             else:
                 timeslice = 'inf'
-        self._scheduler_param = self._env.to_time(timeslice)
+        self._scheduler = (scheduler, self._env.to_time(timeslice))
 
     #@_trace_request
     def execute(self, request, work, max_work_to_consume='inf'):
+        """
+        Consume the given work up to the given limit. When taking scheduling
+        decisions, take into account that the work item is related to the
+        given request.
+        """
         max_work_to_consume = self._env.to_time(max_work_to_consume)
         executor = self._executor
-        scheduler = self._scheduler
+        scheduler, timeslice = self._scheduler
         cpus = self._cpus
-        timeslice = self._scheduler_param
 
         if scheduler == 'ps':
             preempt = False
@@ -193,7 +222,7 @@ class VirtualMachine(NamedObject):
                         yield from work.consume(work_to_consume)
                     else:
                         yield from executor.execute(request, work,
-                                work_to_consume)
+                                                    work_to_consume)
                 except simpy.Interrupt as interrupt:
                     if interrupt.cause.resource == cpus:
                         pass
@@ -205,12 +234,13 @@ class VirtualMachine(NamedObject):
                     max_work_to_consume -= work_consumed
                     self._num_active_cpus -= 1
 
-    def _log(self, *args):
-        print('{0:.6f}'.format(self._env.now), *args)
-
     @property
     def cpu_time(self):
-        # TODO: Inaccurate if called while work is consumed
+        """
+        Return the amont of CPU time (not including steal time) that the machine
+        was active. This value is currently inaccurate if called during a
+        timeslice.
+        """
         return self._cpu_time
 
 class PhysicalMachine(VirtualMachine):
@@ -240,23 +270,31 @@ class Request(NamedObject):
 
     @property
     def start_time(self):
+        "The time the request entered the cloud application."
         return self._start_time
 
-    def get_end_time(self):
+    def _get_end_time(self):
+        "Get the time the request exited the cloud application."
         return self._end_time
 
-    def set_end_time(self, new_value):
+    def _set_end_time(self, new_value):
+        "Set the time the request exited the cloud application."
         assert self._end_time is None
         self._end_time = new_value
 
-    end_time = property(get_end_time, set_end_time)
+    end_time = property(_get_end_time, _set_end_time)
 
     def do_trace(self, when, who, direction):
+        """
+        Record a particular boundary event in the live of the request, such as
+        entering or exiting a microservice, a VCPU or a CPU.
+        """
         #print('{0:.6f} {1!s:<6} {2} {3}'.format(when, who, self, direction))
         self._trace.append(TraceItem(when=when, who=who, direction=direction))
 
     @property
     def trace(self):
+        "Return the trace of this request."
         return self._trace
 
 class OpenLoopClient(object):
@@ -275,9 +313,11 @@ class OpenLoopClient(object):
         self._env.process(self.run())
 
     def connect_to(self, microservice):
+        "Sets the frontend microservice."
         self._downstream_microservice = microservice
 
     def run(self):
+        "Main process method, that issues requests."
         while self._until is None \
                 or self._env.now < self._until:
             self._env.process(self._on_arrival())
@@ -287,17 +327,19 @@ class OpenLoopClient(object):
             yield self._env.timeout(waiting_time)
 
     def _on_arrival(self):
+        """
+        Creates a new request, sends it to the frontend and records its
+        response time.
+        """
         request = Request(start_time=self._env.now)
         yield self._env.process(
             self._downstream_microservice.on_request(request))
         request.end_time = self._env.now
         self._requests.append(request)
-        #for when, who, direction in request.trace:
-        #    print('{0:.6f} {1!s:<6} {2}'.format(when, who, direction))
-        #print()
 
     @property
     def response_times(self):
+        "Returns all measured response times."
         return [r.end_time - r.start_time for r in self._requests]
 
 class MicroService(NamedObject):
@@ -306,12 +348,12 @@ class MicroService(NamedObject):
     Currently, the execution model assumes one thread is created for each
     request.
     """
-    def __init__(self, env, name, average_work, seed='', degree=1, variance=None):
+    def __init__(self, env, name, average_work, seed='', degree=1, variance=0):
         super().__init__(prefix='µs', name=name)
 
         self._env = env
         self._average_work = average_work
-        self._variance = variance or (self._average_work / 10)
+        self._variance = variance
         self._executor = None
         self._downstream_microservices = []
         self._degree = degree
@@ -321,13 +363,22 @@ class MicroService(NamedObject):
         self._total_work = 0
 
     def run_on(self, executor):
+        """
+        Sets the executor (usually a VirtualMachine) on which this
+        MicroService runs.
+        """
         self._executor = executor
 
     def connect_to(self, microservice):
+        "Add a downstream microservice to be called for each request."
         self._downstream_microservices.append(microservice)
 
     @_trace_request
     def on_request(self, request):
+        """
+        Handles a request; produces work, calls the underlying executor and
+        calls downstream microservice.
+        """
         float_demand = self._random.normalvariate(self._average_work,
                                                   self._variance)
         demand = self._env.to_time(float_demand)
@@ -336,13 +387,16 @@ class MicroService(NamedObject):
 
         yield self._env.process(
             self._compute(request, demand_between_calls))
-        for degree in range(self._degree):
+        for _ in range(self._degree):
             for microservice in self._downstream_microservices:
                 yield self._env.process(microservice.on_request(request))
                 yield self._env.process(
                     self._compute(request, demand_between_calls))
 
     def _compute(self, request, demand):
+        """
+        Produces work and wait for the executor to consume it.
+        """
         work = Work(self._env, demand)
         yield self._env.process(self._executor.execute(request, work))
         assert work.consumed
@@ -350,36 +404,41 @@ class MicroService(NamedObject):
 
     @property
     def total_work(self):
+        """
+        Returns the total amount of work produced by this microservice. This
+        serves as a sanity check: The following three values should be equal:
+        - the sum of work produced by all microservices;
+        - the sum of work consumed by all virtual machines;
+        - the sum of work consumed by all physical machines.
+        """
         return self._total_work
 
 def assert_equal(actual, expected, message):
     """
     Asserts that two objects are equal.
     """
-    assert actual==expected, \
+    assert actual == expected, \
         '{0}: actual {1}, expected {2}'.format(message, actual, expected)
 
-Layer = collections.namedtuple('Layer',
-    'average_work relative_variance degree multiplicity')
+Layer = collections.namedtuple(
+    'Layer', 'average_work relative_variance degree multiplicity')
+
+DEFAULT_LAYER_CONFIGS = (
+    Layer(average_work=0.001, relative_variance=0, degree=1, multiplicity=1),
+    Layer(average_work=0.001, relative_variance=0, degree=1, multiplicity=1),
+    Layer(average_work=0.010, relative_variance=0, degree=1, multiplicity=1),
+    Layer(average_work=0.088, relative_variance=0, degree=1, multiplicity=1),
+)
 
 def run_simulation(
         method,
         method_param=None,
         arrival_rate=155,
-        layer_configs=[
-            Layer(average_work=0.001, relative_variance=0, degree=1,
-                multiplicity=1),
-            Layer(average_work=0.001, relative_variance=0, degree=1,
-                multiplicity=1),
-            Layer(average_work=0.010, relative_variance=0, degree=1,
-                multiplicity=1),
-            Layer(average_work=0.088, relative_variance=0, degree=1,
-                multiplicity=1),
-        ],
+        layer_configs=DEFAULT_LAYER_CONFIGS,
         physical_machines=1,
         simulation_duration=100,
         seed=1,
-        ):
+    ):
     """
     Wire the simulation entities together, run one simulation and collect
     results.
@@ -402,19 +461,18 @@ def run_simulation(
     #
     # Software layer
     #
-    client_layer = [
-        OpenLoopClient(env, seed=seed, arrival_rate=arrival_rate,
-            until=simulation_duration),
+    clients = [
+        OpenLoopClient(env, seed=seed,
+                       arrival_rate=arrival_rate, until=simulation_duration),
     ]
 
     layers = []
-    layers.append(client_layer)
-    for c in layer_configs:
+    for c in layer_configs: # pylint: disable=invalid-name
         layer = []
         for _ in range(c.multiplicity):
             microservice = MicroService(
                 env, seed=seed,
-                name='l{0}us{0}',
+                name='l{0}us{1}'.format(len(layers), len(layer)),
                 average_work=c.average_work,
                 variance=c.average_work*c.relative_variance,
                 degree=c.degree,
@@ -427,7 +485,7 @@ def run_simulation(
     #
 
     # Connect layer n-1 to all micro-services in layer n
-    for caller_layer, callee_layer in pairwise(layers):
+    for caller_layer, callee_layer in pairwise(clients + layers):
         for caller_microservice in caller_layer:
             for callee_microservice in callee_layer:
                 caller_microservice.connect_to(callee_microservice)
@@ -437,9 +495,6 @@ def run_simulation(
     #
     virtual_machines = []
     for layer in layers:
-        if layer == client_layer:
-            # Clients come with their own infrastructure
-            continue
         for microservice in layer:
             virtual_machine = VirtualMachine(env, num_cpus=16)
             virtual_machine.name = 'vm_' + str(microservice)
@@ -469,14 +524,13 @@ def run_simulation(
     #
     # Collect data
     #
-    response_times = sum([client.response_times for client in client_layer], [])
+    response_times = sum([client.response_times for client in clients], [])
 
     #
     # Sanity check
     #
     expected_cpu_time = sum([
-        us.total_work for layer in layers if layer is not client_layer
-        for us in layer])
+        us.total_work for layer in layers for us in layer])
 
     # Ensure VMs did not produce more CPU that requests could have consumed
     actual_vm_cpu_time = sum([vm.cpu_time for vm in virtual_machines])
@@ -495,16 +549,21 @@ def run_simulation(
         for response_time in response_times]
 
 def explore_param(output_filename, name, values):
+    """
+    Runs several simulations for all scheduling methods, varying the given
+    parameter along the given values, writing the results to the given output
+    filename.
+    """
     logger = logging.getLogger('tailtamer')
     logger.info("Exploring %s for %s", name,
-        ' '.join([str(value) for value in values]))
+                ' '.join([str(value) for value in values]))
 
     method_param_tuples = [
-        ('ps'  , '0.005'),
-        ('ps'  , 'Inf'  ),
-        ('tt'  , '0.005'),
-        ('tt'  , '0.020'),
-        ('tt+p', None   ),
+        ('ps'  , '0.005'), # pylint: disable=bad-whitespace
+        ('ps'  , 'Inf'  ), # pylint: disable=bad-whitespace
+        ('tt'  , '0.005'), # pylint: disable=bad-whitespace
+        ('tt'  , '0.020'), # pylint: disable=bad-whitespace
+        ('tt+p', None   ), # pylint: disable=bad-whitespace
     ]
 
     workers = multiprocessing.Pool() # pylint: disable=no-member
@@ -516,7 +575,9 @@ def explore_param(output_filename, name, values):
             future = workers.apply_async(
                 run_simulation,
                 kwds=kwds)
-            future.kwds = kwds
+            future.kwds = dict(kwds)
+            future.kwds['method'] = \
+                method + ('_' + str(param) if param else '')
             futures.append(future)
 
     with open(output_filename, 'w') as output_file:
@@ -541,10 +602,11 @@ def main():
 
     logger = logging.getLogger('tailtamer')
     logger.setLevel(logging.DEBUG)
-    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-    ch = logging.StreamHandler()
-    ch.setFormatter(formatter)
-    logger.addHandler(ch)
+    formatter = logging.Formatter(
+        '%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    channel = logging.StreamHandler()
+    channel.setFormatter(formatter)
+    logger.addHandler(channel)
 
     started_at = time.time()
     logger.info('Starting simulations')
