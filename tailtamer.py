@@ -322,8 +322,7 @@ class OpenLoopClient(object):
         while self._until is None \
                 or self._env.now < self._until:
             self._env.process(self._on_arrival())
-            float_waiting_time = \
-                max(self._random.expovariate(self._arrival_rate), 0)
+            float_waiting_time = self._random.expovariate(self._arrival_rate)
             waiting_time = self._env.to_time(float_waiting_time)
             yield self._env.timeout(waiting_time)
 
@@ -380,11 +379,10 @@ class MicroService(NamedObject):
         Handles a request; produces work, calls the underlying executor and
         calls downstream microservice.
         """
-        float_demand = self._random.normalvariate(self._average_work,
-                                                  self._variance)
-        demand = self._env.to_time(float_demand)
-        demand_between_calls = \
-            demand / (len(self._downstream_microservices)*self._degree+1)
+        demand = max(
+            self._random.normalvariate(self._average_work, self._variance), 0)
+        num_computations = len(self._downstream_microservices)*self._degree+1
+        demand_between_calls = self._env.to_time(demand / num_computations)
 
         yield self._env.process(
             self._compute(request, demand_between_calls))
