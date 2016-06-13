@@ -4,10 +4,10 @@ help:
 	$(ECHO) $(MAKE) run  => run simulator and gather results
 	$(ECHO) $(MAKE) plot => plot results
 
-run: tailtamer.py
+run:
 	python3 -OO -m tailtamer
 
-plot: run plot-results.R *.csv
+plot: plot-results.R *.csv
 	R --vanilla < plot-results.R
 
 view: plot
