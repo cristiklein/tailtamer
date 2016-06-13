@@ -606,6 +606,27 @@ def with_relative_variance(template_layers_config, relative_variance):
         layer_config in template_layers_config ]
     return layers_config
 
+def with_last_degree(template_layers_config, degree):
+    assert len(template_layers_config) >= 2
+    layers_config = [
+        layer_config for
+        layer_config in template_layers_config ]
+    layers_config[-1] = \
+        layers_config[-1]._replace(average_work=layers_config[-1].average_work/degree)
+    layers_config[-2] = \
+        layers_config[-2]._replace(degree=degree)
+    return layers_config
+
+def with_last_multiplicity(template_layers_config, multiplicity):
+    layers_config = [
+        layer_config for
+        layer_config in template_layers_config ]
+    layers_config[-1] = \
+        layers_config[-1]._replace(
+            average_work=layers_config[-1].average_work/multiplicity,
+            multiplicity=multiplicity)
+    return layers_config
+
 def main():
     """
     Entry-point for simulator.
@@ -634,7 +655,29 @@ def main():
             with_relative_variance(DEFAULT_LAYERS_CONFIG, 0.20),
         ],
         output_name='relative_variance',
-        output_values=[0.00, 0.05, 0.010, 0.20])
+        output_values=[0.00, 0.05, 0.10, 0.20])
+
+    # Degree
+    explore_param('results-deg.csv', 'layers_config',
+        [
+            with_last_degree(DEFAULT_LAYERS_CONFIG, 1),
+            with_last_degree(DEFAULT_LAYERS_CONFIG, 2),
+            with_last_degree(DEFAULT_LAYERS_CONFIG, 5),
+            with_last_degree(DEFAULT_LAYERS_CONFIG, 10),
+        ],
+        output_name='degree',
+        output_values=[1, 2, 5, 10])
+
+    # Multiplicity
+    explore_param('results-mul.csv', 'layers_config',
+        [
+            with_last_multiplicity(DEFAULT_LAYERS_CONFIG, 1),
+            with_last_multiplicity(DEFAULT_LAYERS_CONFIG, 2),
+            with_last_multiplicity(DEFAULT_LAYERS_CONFIG, 5),
+            with_last_multiplicity(DEFAULT_LAYERS_CONFIG, 10),
+        ],
+        output_name='multiplicity',
+        output_values=[1, 2, 5, 10])
 
     ended_at = time.time()
     logger.info('Simulations completed in %f seconds', ended_at-started_at)
