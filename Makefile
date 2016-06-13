@@ -4,14 +4,17 @@ help:
 	$(ECHO) $(MAKE) run  => run simulator and gather results
 	$(ECHO) $(MAKE) plot => plot results
 
-run:
+run: tailtamer.py
 	python3 -OO -m tailtamer
 
-plot:
+plot: run plot-results.R *.csv
 	R --vanilla < plot-results.R
-	if [ -n "$$DISPLAY" ]; then \
-		xdg-open Rplots.pdf; \
-	fi
+
+view: plot
+	xdg-open results-ar.csv.pdf
+	xdg-open results-deg.csv.pdf
+	xdg-open results-mul.csv.pdf
+	xdg-open results-var.csv.pdf
 
 init:
 	pip3 install -r requirements.txt
