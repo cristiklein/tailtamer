@@ -1,5 +1,5 @@
 __pycache__
 *.py[co]
 *.csv
-*.csv.pdf
+*.csv*pdf
 *.swp
