@@ -472,7 +472,7 @@ def run_simulation(
         method,
         method_param=None,
         arrival_rate=155,
-        context_switch_overhead='0.000100',
+        context_switch_overhead=0,
         layers_config=DEFAULT_LAYERS_CONFIG,
         physical_machines=1,
         simulation_duration=100,
