@@ -147,13 +147,22 @@ class VirtualMachine(NamedObject):
         'tt+p',
     ]
 
-    def __init__(self, env, num_cpus, prefix='vm', name=None):
+    def __init__(self, env, num_cpus, prefix='vm', name=None,
+            context_switch_overhead=0):
         super().__init__(prefix=prefix, name=name)
 
         self._env = env
         self._cpus = simpy.PreemptiveResource(env, num_cpus)
         self._scheduler = ('ps', 0.005)
         self._executor = None
+
+        self._context_switch_overhead = \
+            self._env.to_time(context_switch_overhead)
+        ## stores last work performed on each CPU, to decide whether context
+        # switching overhead should be added or not.
+        self._cpu_cache = [ None ] * num_cpus
+        ## keep track of which CPUs are busy
+        self._cpu_is_idle  = [ True ] * num_cpus
 
         self._cpu_time = 0
 
@@ -223,7 +232,34 @@ class VirtualMachine(NamedObject):
                         "is a bug in the simulator."
 
                     if executor is None:
-                        yield from work.consume(work_to_consume)
+                        # This code is a bit cryptic to improve performance. In
+                        # essence, we simulate CPU caches and track what work
+                        # was execute on each CPU. If we find the CPU on which the
+                        # current work was last executed, we consider the cache
+                        # to be hot and no overhead is paid. Otherwise, we
+                        # search for an idle CPU, consider the cache cold and
+                        # pay the overhead.
+                        cache_is_hot = False
+
+                        some_idle_cpu_id = None
+                        for cpu_id in range(len(self._cpu_is_idle)):
+                            if self._cpu_cache[cpu_id] == work:
+                                cache_is_hot = True
+                                break
+                            if self._cpu_is_idle[cpu_id]:
+                                some_idle_cpu_id = cpu_id
+
+                        if not cache_is_hot:
+                            cpu_id = some_idle_cpu_id
+                            self._cpu_cache[cpu_id] = work
+                        self._cpu_is_idle[cpu_id] = False
+
+                        try:
+                            if not cache_is_hot:
+                                yield self._env.timeout(self._context_switch_overhead)
+                            yield from work.consume(work_to_consume)
+                        finally:
+                            self._cpu_is_idle[cpu_id] = True
                     else:
                         yield from executor.execute(request, work,
                                                     work_to_consume)
@@ -436,6 +472,7 @@ def run_simulation(
         method,
         method_param=None,
         arrival_rate=155,
+        context_switch_overhead='0.000100',
         layers_config=DEFAULT_LAYERS_CONFIG,
         physical_machines=1,
         simulation_duration=100,
@@ -456,7 +493,9 @@ def run_simulation(
     # Infrastructure layer
     #
     physical_machines = [
-        PhysicalMachine(env, num_cpus=16)
+        PhysicalMachine(
+            env, num_cpus=16,
+            context_switch_overhead=context_switch_overhead)
         for _ in range(physical_machines)
     ]
 
@@ -681,6 +720,10 @@ def main():
         ],
         output_name='multiplicity',
         output_values=[1, 2, 5, 10])
+
+    # Context-switch overhead
+    explore_param('results-ctx.csv', 'context_switch_overhead',
+        ['0', '0.000001', '0.000010', '0.000100'])
 
     ended_at = time.time()
     logger.info('Simulations completed in %f seconds', ended_at-started_at)
