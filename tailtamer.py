@@ -192,6 +192,8 @@ class VirtualMachine(NamedObject):
         executor = self._executor
         scheduler, timeslice = self._scheduler
         cpus = self._cpus
+        cpu_request = self._cpus.request
+        num_cpus = self._cpus.capacity
 
         if scheduler == 'ps':
             preempt = False
@@ -206,7 +208,7 @@ class VirtualMachine(NamedObject):
             raise NotImplementedError() # should never get here
 
         while max_work_to_consume > 0 and not work.consumed:
-            with cpus.request(priority=priority, preempt=preempt) as req:
+            with cpu_request(priority=priority, preempt=preempt) as req:
                 work_to_consume = min(timeslice, max_work_to_consume)
 
                 try:
@@ -214,7 +216,8 @@ class VirtualMachine(NamedObject):
 
                     yield req
                     self._num_active_cpus += 1
-                    assert self._num_active_cpus <= cpus.capacity, \
+
+                    assert self._num_active_cpus <= num_cpus, \
                         "Weird! Attempt to execute more requests "+\
                         "concurrently than available CPUs. There "+\
                         "is a bug in the simulator."
