@@ -142,6 +142,7 @@ class VirtualMachine(NamedObject):
     Simulates a virtual machine.
     """
     ALLOWED_SCHEDULERS = [
+        'cfs',
         'ps',
         'tt',
         'tt+p',
@@ -204,7 +205,13 @@ class VirtualMachine(NamedObject):
         cpu_request = self._cpus.request
         num_cpus = self._cpus.capacity
 
-        if scheduler == 'ps':
+        sched_latency = self._env.to_time('0.024')
+        sched_min_granularity = self._env.to_time('0.003')
+
+        if scheduler == 'cfs':
+            preempt = False
+            priority = 0
+        elif scheduler == 'ps':
             preempt = False
             priority = 0
         elif scheduler == 'tt':
@@ -218,12 +225,17 @@ class VirtualMachine(NamedObject):
 
         while max_work_to_consume > 0 and not work.consumed:
             with cpu_request(priority=priority, preempt=preempt) as req:
-                work_to_consume = min(timeslice, max_work_to_consume)
-
                 try:
                     amount_consumed_before = work.amount_consumed
 
                     yield req
+
+                    if scheduler == 'cfs':
+                        timeslice = \
+                            max(sched_latency/(len(cpus.users)+len(cpus.queue)),
+                                sched_min_granularity)
+                    work_to_consume = min(timeslice, max_work_to_consume)
+
                     self._num_active_cpus += 1
 
                     assert self._num_active_cpus <= num_cpus, \
@@ -606,6 +618,7 @@ def explore_param(output_filename, name, values, output_name=None,
                 ' '.join([str(value) for value in output_values]))
 
     method_param_tuples = [
+        ('cfs' , None   ), # pylint: disable=bad-whitespace
         ('ps'  , '0.005'), # pylint: disable=bad-whitespace
         ('ps'  , 'Inf'  ), # pylint: disable=bad-whitespace
         ('tt'  , '0.005'), # pylint: disable=bad-whitespace
