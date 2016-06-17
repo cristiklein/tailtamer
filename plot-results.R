@@ -8,12 +8,15 @@ p99 <- function(values) {
   quantile(values, .99)
 }
 
-my_plot <- function(input_file_name, x_column, x_label, x_mult=1) {
+my_plot <- function(input_file_name, x_column, x_label, x_mult=NA) {
   git_dirty <- (length(system('git status --untracked-files=no --porcelain', intern=TRUE)) > 0)
   git_commit <- system('git log -1 --format="%H"', intern=TRUE)
   
   data <- read.csv(input_file_name)
-  data$x <- as.factor(data[[x_column]]*x_mult)
+  data$x <- as.factor(data[[x_column]])
+
+  if (!is.na(x_mult))
+    data$x <- data$x * x_mult
   
   # TODO: super-inefficient
   data_summary <- NULL
