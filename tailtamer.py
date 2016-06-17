@@ -143,6 +143,7 @@ class VirtualMachine(NamedObject):
     """
     ALLOWED_SCHEDULERS = [
         'cfs',
+        'fifo',
         'ps',
         'tt',
         'tt+p',
@@ -209,6 +210,9 @@ class VirtualMachine(NamedObject):
         sched_min_granularity = self._env.to_time('0.003')
 
         if scheduler == 'cfs':
+            preempt = False
+            priority = 0
+        elif scheduler == 'fifo':
             preempt = False
             priority = 0
         elif scheduler == 'ps':
@@ -619,8 +623,7 @@ def explore_param(output_filename, name, values, output_name=None,
 
     method_param_tuples = [
         ('cfs' , None   ), # pylint: disable=bad-whitespace
-        ('ps'  , '0.005'), # pylint: disable=bad-whitespace
-        ('ps'  , 'Inf'  ), # pylint: disable=bad-whitespace
+        ('fifo', None   ), # pylint: disable=bad-whitespace
         ('tt'  , '0.005'), # pylint: disable=bad-whitespace
         ('tt'  , '0.020'), # pylint: disable=bad-whitespace
         ('tt+p', None   ), # pylint: disable=bad-whitespace
