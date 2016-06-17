@@ -638,7 +638,8 @@ def explore_param(output_filename, name, values, output_name=None,
             future.kwds = dict(kwds)
             future.kwds['method'] = \
                 method + ('_' + str(method_param) if method_param else '')
-            del future.kwds['layers_config']
+            if 'layers_config' in future.kwds:
+                del future.kwds['layers_config']
             future.kwds[output_name] = output_value
             futures.append(future)
 
