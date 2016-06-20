@@ -498,6 +498,7 @@ class MicroService(NamedObject):
         self._random = random.Random()
         self._random.seed(str(self)+str(seed))
         self._use_tied_requests = use_tied_requests
+        self._num_cancelled_requests = 0
 
         self._total_work = 0
         self._total_work_wasted = 0
@@ -560,6 +561,7 @@ class MicroService(NamedObject):
             self._total_work += demand
         except Cancelled:
             assert work.cancelled
+            self._num_cancelled_requests += 1
             work_consumed = work.amount_consumed - before_work_consumed
             self._total_work += work_consumed
             self._total_work_wasted += work_consumed
@@ -582,6 +584,13 @@ class MicroService(NamedObject):
         Returns the total amount of work wasted due to tied requests.
         """
         return self._total_work_wasted
+
+    @property
+    def num_cancelled_requests(self):
+        """
+        Returns the number of requests that were cancelled.
+        """
+        return self._num_cancelled_requests
 
 def assert_equal(actual, expected, message):
     """
@@ -723,6 +732,9 @@ def run_simulation(
 
     wasted_cpu_time = sum([
         us.total_work_wasted for layer in layers for us in layer])
+
+    num_cancelled_requests = sum([
+        us.num_cancelled_requests for layer in layers for us in layer])
 
     return [
         Result(
