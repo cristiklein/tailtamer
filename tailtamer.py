@@ -85,6 +85,12 @@ def _trace_request(instance_method):
                          direction='exit')
     return wrapper
 
+class Cancelled(Exception):
+    """
+    Represents the fact that a request was cancelled, as requested by the user.
+    """
+    pass
+
 class Work(object):
     """
     Simulates work that has to be performed. Work must only be created by
@@ -97,6 +103,7 @@ class Work(object):
         self._initial = work
         self._remaining = work
         self._process = None
+        self._cancelled = False
 
     def consume(self, max_work_to_consume):
         """
@@ -108,18 +115,43 @@ class Work(object):
         assert max_work_to_consume > 0
         assert self._process is None
 
+        if self._cancelled:
+            # cancelled before startal
+            raise Cancelled()
+
         self._process = self._env.active_process
         work_to_consume = min(self._remaining, max_work_to_consume)
         assert work_to_consume > 0
         try:
             started_at = self._env.now
             yield self._env.timeout(work_to_consume)
-        except simpy.Interrupt:
+        except simpy.Interrupt as interrupt:
+            if interrupt.cause=='cancelled':
+                assert self._cancelled
+                raise Cancelled() from interrupt
             raise
         finally:
             ended_at = self._env.now
             self._remaining -= (ended_at-started_at)
             self._process = None
+
+    def cancel(self, _=None):
+        """
+        Cancel all outstanding work, if any is left.
+        """
+        if self.consumed or self._cancelled:
+            return
+
+        self._cancelled = True
+        if self._process:
+            self._process.interrupt(cause='cancelled')
+
+    @property
+    def cancelled(self):
+        """
+        True if the request was cancelled before completion.
+        """
+        return self._cancelled
 
     @property
     def amount_consumed(self):
@@ -284,6 +316,8 @@ class VirtualMachine(NamedObject):
                         pass
                     else:
                         raise
+                except Cancelled:
+                    raise # propagate cancellation up
                 finally:
                     work_consumed = work.amount_consumed-amount_consumed_before
                     self._cpu_time += work_consumed
@@ -451,10 +485,19 @@ class MicroService(NamedObject):
         """
         Produces work and wait for the executor to consume it.
         """
-        work = Work(self._env, demand)
-        yield self._env.process(self._executor.execute(request, work))
-        assert work.consumed
-        self._total_work += demand
+        work = Work(self._env, demand, tie)
+
+        try:
+            before_work_consumed = work.amount_consumed
+            yield self._env.process(self._executor.execute(request, work))
+            assert work.consumed
+            self._total_work += demand
+        except Cancelled:
+            assert work.cancelled
+            work_consumed = work.amount_consumed - before_work_consumed
+            self._total_work += work_consumed
+            self._total_work_wasted += work_consumed
+            raise
 
     @property
     def total_work(self):
@@ -466,6 +509,13 @@ class MicroService(NamedObject):
         - the sum of work consumed by all physical machines.
         """
         return self._total_work
+
+    @property
+    def total_work_wasted(self):
+        """
+        Returns the total amount of work wasted due to tied requests.
+        """
+        return self._total_work_wasted
 
 def assert_equal(actual, expected, message):
     """
