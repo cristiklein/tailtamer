@@ -591,13 +591,18 @@ def assert_equal(actual, expected, message):
         '{0}: actual {1}, expected {2}'.format(message, actual, expected)
 
 Layer = collections.namedtuple(
-    'Layer', 'average_work relative_variance degree multiplicity')
+    'Layer', 'average_work relative_variance degree multiplicity '+
+    'use_tied_requests')
 
 DEFAULT_LAYERS_CONFIG = (
-    Layer(average_work=0.001, relative_variance=0, degree=1, multiplicity=1),
-    Layer(average_work=0.001, relative_variance=0, degree=1, multiplicity=1),
-    Layer(average_work=0.010, relative_variance=0, degree=1, multiplicity=1),
-    Layer(average_work=0.088, relative_variance=0, degree=1, multiplicity=1),
+    Layer(average_work=0.001, relative_variance=0, degree=1, multiplicity=1,
+        use_tied_requests=False),
+    Layer(average_work=0.001, relative_variance=0, degree=1, multiplicity=1,
+        use_tied_requests=False),
+    Layer(average_work=0.010, relative_variance=0, degree=1, multiplicity=1,
+        use_tied_requests=False),
+    Layer(average_work=0.088, relative_variance=0, degree=1, multiplicity=1,
+        use_tied_requests=False),
 )
 
 def run_simulation(
@@ -649,6 +654,7 @@ def run_simulation(
                 average_work=c.average_work,
                 variance=c.average_work*c.relative_variance,
                 degree=c.degree,
+                use_tied_requests=c.use_tied_requests,
             )
             layer.append(microservice)
         layers.append(layer)
@@ -714,6 +720,9 @@ def run_simulation(
     actual_pm_cpu_time = sum([pm.cpu_time for pm in physical_machines])
     assert_equal(actual_pm_cpu_time, expected_cpu_time,
                  'PM CPU time check failed')
+
+    wasted_cpu_time = sum([
+        us.total_work_wasted for layer in layers for us in layer])
 
     return [
         Result(
@@ -803,6 +812,15 @@ def with_last_multiplicity(template_layers_config, multiplicity):
             multiplicity=multiplicity)
     return layers_config
 
+def with_tied_requests(template_layers_config):
+    layers_config = [
+        layer_config for
+        layer_config in template_layers_config ]
+    layers_config[-2] = \
+        layers_config[-2]._replace(
+            use_tied_requests=True)
+    return layers_config
+
 def main():
     """
     Entry-point for simulator.
@@ -858,6 +876,15 @@ def main():
     # Context-switch overhead
     explore_param('results-ctx.csv', 'context_switch_overhead',
         ['0', '0.000001', '0.000010', '0.000100'])
+
+    # Tied requests
+    explore_param('results-tie.csv', 'layers_config',
+        [
+            DEFAULT_LAYERS_CONFIG,
+            with_tied_requests(DEFAULT_LAYERS_CONFIG),
+        ],
+        output_name='with_tied_requests',
+        output_values=[False, True])
 
     ended_at = time.time()
     logger.info('Simulations completed in %f seconds', ended_at-started_at)
