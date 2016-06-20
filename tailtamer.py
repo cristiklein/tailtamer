@@ -91,12 +91,45 @@ class Cancelled(Exception):
     """
     pass
 
+class RequestTiePair(object):
+    """
+    Represents the information necessary to produce request ties. Tying requests
+    is a technique popularised by Google (Tail at Scale) to reduce tail response
+    time. It consists in sending two tied requests: When one starts, the other
+    one is cancelled. To avoid the two requests cancelling each other out,
+    symmetry is broken by marking one request as high-priority, while the other
+    one as low-priority. Once started, the high-priority request can no longer
+    be cancelled, whereas the low-priority request can be cancelled after
+    startal.
+    """
+    def __init__(self, env):
+        self._start_event_high_prio = simpy.events.Event(env)
+        self._start_event_low_prio = simpy.events.Event(env)
+
+    @property
+    def high_prio(self):
+        """
+        Returns a tuple necessary for the high-priority request:
+        cancel_after_start, start_event, cancel_event. The work is supposed to
+        trigger `start_event` on startal and cancel itself when `cancel_event`
+        is triggered.
+        """
+        return False, self._start_event_high_prio, self._start_event_low_prio
+
+    @property
+    def low_prio(self):
+        """
+        Returns a tuple necessary for the high-priority request:
+        cancel_after_start, start_event, cancel_event
+        """
+        return True, self._start_event_low_prio, self._start_event_high_prio
+
 class Work(object):
     """
     Simulates work that has to be performed. Work must only be created by
     microservices and consumed by lowest-level executors.
     """
-    def __init__(self, env, work):
+    def __init__(self, env, work, tie=None):
         assert work >= 0
 
         self._env = env
@@ -104,6 +137,11 @@ class Work(object):
         self._remaining = work
         self._process = None
         self._cancelled = False
+        self._tie = tie
+
+        if self._tie:
+            cancel_after_start, start_event, cancel_event = self._tie
+            cancel_event.callbacks.append(self.cancel)
 
     def consume(self, max_work_to_consume):
         """
@@ -115,6 +153,9 @@ class Work(object):
         assert max_work_to_consume > 0
         assert self._process is None
 
+        cancel_after_start, start_event, cancel_event = \
+            self._tie if self._tie else (False, None, None)
+
         if self._cancelled:
             # cancelled before startal
             raise Cancelled()
@@ -124,6 +165,11 @@ class Work(object):
         assert work_to_consume > 0
         try:
             started_at = self._env.now
+            if not cancel_after_start and cancel_event and \
+                    cancel_event.callbacks:
+                cancel_event.callbacks.remove(self.cancel)
+            if start_event and not start_event.triggered:
+                start_event.succeed()
             yield self._env.timeout(work_to_consume)
         except simpy.Interrupt as interrupt:
             if interrupt.cause=='cancelled':
@@ -134,6 +180,8 @@ class Work(object):
             ended_at = self._env.now
             self._remaining -= (ended_at-started_at)
             self._process = None
+            if cancel_event and cancel_event.callbacks:
+                cancel_event.callbacks.remove(self.cancel)
 
     def cancel(self, _=None):
         """
@@ -437,7 +485,8 @@ class MicroService(NamedObject):
     Currently, the execution model assumes one thread is created for each
     request.
     """
-    def __init__(self, env, name, average_work, seed='', degree=1, variance=0):
+    def __init__(self, env, name, average_work, seed='', degree=1, variance=0,
+            use_tied_requests=False):
         super().__init__(prefix='µs', name=name)
 
         self._env = env
@@ -448,8 +497,10 @@ class MicroService(NamedObject):
         self._degree = degree
         self._random = random.Random()
         self._random.seed(str(self)+str(seed))
+        self._use_tied_requests = use_tied_requests
 
         self._total_work = 0
+        self._total_work_wasted = 0
 
     def run_on(self, executor):
         """
@@ -463,7 +514,7 @@ class MicroService(NamedObject):
         self._downstream_microservices.append(microservice)
 
     @_trace_request
-    def on_request(self, request):
+    def on_request(self, request, tie=None):
         """
         Handles a request; produces work, calls the underlying executor and
         calls downstream microservice.
@@ -474,14 +525,29 @@ class MicroService(NamedObject):
         demand_between_calls = self._env.to_time(demand / num_computations)
 
         yield self._env.process(
-            self._compute(request, demand_between_calls))
+            self._compute(request, demand_between_calls, tie))
         for _ in range(self._degree):
             for microservice in self._downstream_microservices:
-                yield self._env.process(microservice.on_request(request))
+                if not self._use_tied_requests:
+                    yield self._env.process(microservice.on_request(request))
+                else:
+                    tie_pair = RequestTiePair(self._env)
+                    r1 = self._env.process(microservice.on_request(request,
+                        tie_pair.high_prio))
+                    r2 = self._env.process(microservice.on_request(request,
+                        tie_pair.low_prio))
+
+                    try:
+                        yield r1 | r2
+                    except Cancelled:
+                        if r2.triggered and not r2.ok:
+                            yield r1
+                        else:
+                            yield r2
                 yield self._env.process(
                     self._compute(request, demand_between_calls))
 
-    def _compute(self, request, demand):
+    def _compute(self, request, demand, tie=None):
         """
         Produces work and wait for the executor to consume it.
         """
