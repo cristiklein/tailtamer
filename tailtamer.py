@@ -310,9 +310,9 @@ class VirtualMachine(NamedObject):
                     yield req
 
                     if scheduler == 'cfs':
-                        timeslice = \
+                        timeslice = self._env.to_time(
                             max(sched_latency/(len(cpus.users)+len(cpus.queue)),
-                                sched_min_granularity)
+                                sched_min_granularity))
                     work_to_consume = min(timeslice, max_work_to_consume)
 
                     self._num_active_cpus += 1
