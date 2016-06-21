@@ -45,7 +45,6 @@ my_plot <- function(input_file_name, x_column, x_label, x_mult=NA) {
     geom_violin(position = dodge) +
     labs(title=plot_title, x=x_label, y = "Response time [s]") +
     geom_point(stat = "summary", fun.y = "mean", position = dodge, size = 3, show.legend = FALSE) +
-    geom_point(stat = "summary", fun.y = "p95" , position = dodge, size = 2, show.legend = FALSE) +
     geom_point(stat = "summary", fun.y = "p99" , position = dodge, show.legend = FALSE) +
     theme(
       legend.margin = unit(0, "null"),
