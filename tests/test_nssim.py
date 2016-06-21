@@ -17,6 +17,15 @@ def test_ns_fail():
     env.process(some_process(env, 10.1))
     env.run()
 
+@raises(TypeError)
+def test_ns_fail2():
+    """
+    Ensure it is not possible to inject floats into simulation time.
+    """
+    env = tailtamer.NsSimPyEnvironment()
+    env.process(some_process(env, 4e-29))
+    env.run()
+
 def test_ns_ok1():
     """
     Integer timeout should be okey
