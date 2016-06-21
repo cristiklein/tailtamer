@@ -777,26 +777,35 @@ def explore_param(output_filename, name, values, output_name=None,
     logger.info("Exploring %s for %s", output_name,
                 ' '.join([str(value) for value in output_values]))
 
-    method_param_tuples = [
-        ('cfs' , None   ), # pylint: disable=bad-whitespace
-        ('fifo', None   ), # pylint: disable=bad-whitespace
-        ('tt'  , '0.005'), # pylint: disable=bad-whitespace
-        ('tt'  , '0.020'), # pylint: disable=bad-whitespace
-        ('tt+p', None   ), # pylint: disable=bad-whitespace
+    method_param_tie_tuples = [
+        ('cfs' , None   , False), # pylint: disable=bad-whitespace
+        ('cfs' , None   , True ), # pylint: disable=bad-whitespace
+        ('fifo', None   , False), # pylint: disable=bad-whitespace
+        ('tt'  , '0.005', False), # pylint: disable=bad-whitespace
+        ('tt'  , '0.020', False), # pylint: disable=bad-whitespace
+        ('tt+p', None   , False), # pylint: disable=bad-whitespace
     ]
 
     workers = multiprocessing.Pool() # pylint: disable=no-member
     futures = []
-    for method, method_param in method_param_tuples:
+    for method, method_param, use_tied_requests in method_param_tie_tuples:
         for value, output_value in zip(values, output_values):
             kwds = dict(method=method, method_param=method_param)
             kwds[name] = value
+            if use_tied_requests:
+                if name is 'layers_config':
+                    kwds['layers_config'] = with_tied_requests(value)
+                else:
+                    kwds['layers_config'] = \
+                        with_tied_requests(DEFAULT_LAYERS_CONFIG)
+
             future = workers.apply_async(
                 run_simulation,
                 kwds=kwds)
             future.kwds = dict(kwds)
             future.kwds['method'] = \
-                method + ('_' + str(method_param) if method_param else '')
+                method + ('_' + str(method_param) if method_param else '') + \
+                ('+tie' if use_tied_requests else '')
             if 'layers_config' in future.kwds:
                 del future.kwds['layers_config']
             future.kwds[output_name] = output_value
@@ -907,15 +916,6 @@ def main():
     # Context-switch overhead
     explore_param('results-ctx.csv', 'context_switch_overhead',
         ['0', '0.000001', '0.000010', '0.000100'])
-
-    # Tied requests
-    explore_param('results-tie.csv', 'layers_config',
-        [
-            DEFAULT_LAYERS_CONFIG,
-            with_tied_requests(DEFAULT_LAYERS_CONFIG),
-        ],
-        output_name='with_tied_requests',
-        output_values=[False, True])
 
     ended_at = time.time()
     logger.info('Simulations completed in %f seconds', ended_at-started_at)
