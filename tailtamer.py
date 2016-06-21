@@ -594,17 +594,30 @@ def assert_equal(actual, expected, message):
     assert actual == expected, \
         '{0}: actual {1}, expected {2}'.format(message, actual, expected)
 
+QUANTIZER = decimal.Decimal('1.000000000')
+
 class NsSimPyEnvironment(simpy.Environment):
     """
     A simulation environment that represents time in Decimal with nanoseconds
     precision. Avoids all kind of funny floating-point artimetic issues.
     """
     def __init__(self):
-        self._context = decimal.Context(prec=9, rounding=decimal.ROUND_UP)
         super().__init__(initial_time=self.to_time(0))
 
     def to_time(self, time):
-        return self._context.create_decimal(time)
+        time = decimal.Decimal(time)
+        if time.is_finite():
+            time = time.quantize(QUANTIZER, rounding=decimal.ROUND_UP)
+        return time
+
+    def is_valid_time(self, time):
+        return QUANTIZER.same_quantum(time)
+
+    def timeout(self, delay, value=None):
+        if not QUANTIZER.same_quantum(delay):
+            raise RuntimeError(
+                'Sub-nanosecond time injected into simulator: {}'.format(delay))
+        return super().timeout(delay, value)
 
 Layer = collections.namedtuple(
     'Layer', 'average_work relative_variance degree multiplicity '+
