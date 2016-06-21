@@ -31,11 +31,6 @@ def pretty_kwds(kwds, sep=' '):
     "pretty_kwds(a=1, b=2) -> 'a=1 b=2'"
     return sep.join(sorted([str(k)+'='+str(v) for k, v in kwds.items()]))
 
-def to_decimal_with_ns_prec(number):
-    "Returns a Decimal with nano-second precision"
-    return decimal.Context(prec=9, rounding=decimal.ROUND_DOWN).\
-        create_decimal(number)
-
 class NamedObject(object):
     """
     Gives classes a more human-friendly string identification as retrieved
@@ -599,6 +594,18 @@ def assert_equal(actual, expected, message):
     assert actual == expected, \
         '{0}: actual {1}, expected {2}'.format(message, actual, expected)
 
+class NsSimPyEnvironment(simpy.Environment):
+    """
+    A simulation environment that represents time in Decimal with nanoseconds
+    precision. Avoids all kind of funny floating-point artimetic issues.
+    """
+    def __init__(self):
+        self._context = decimal.Context(prec=9, rounding=decimal.ROUND_UP)
+        super().__init__(initial_time=self.to_time(0))
+
+    def to_time(self, time):
+        return self._context.create_decimal(time)
+
 Layer = collections.namedtuple(
     'Layer', 'average_work relative_variance degree multiplicity '+
     'use_tied_requests')
@@ -632,8 +639,7 @@ def run_simulation(
     #
     # Simulation environment
     #
-    env = simpy.Environment()
-    env.to_time = to_decimal_with_ns_prec
+    env = NsSimPyEnvironment()
 
     #
     # Infrastructure layer
