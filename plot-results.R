@@ -34,9 +34,11 @@ my_plot <- function(input_file_name, x_column, x_label, x_mult=NA) {
   for (x in levels(data$x)) {
     rt99_baseline = min(data_summary$rt99[data_summary$x==x & data_summary$method=='tt+p'])
     for (method in unique(data$method)) {
-      rt99 = min(data_summary$rt99[data_summary$x==x & data_summary$method==method])
-      worse = (rt99-rt99_baseline)/rt99_baseline*100
-      rbind(data_improvement, data.frame(x=x, method=method, rt99=rt99, worse=worse)) -> data_improvement
+      if (method != 'tt+p') {
+        rt99 = min(data_summary$rt99[data_summary$x==x & data_summary$method==method])
+        worse = (rt99-rt99_baseline)/rt99_baseline*100
+        rbind(data_improvement, data.frame(x=x, method=method, rt99=rt99, worse=worse)) -> data_improvement
+      }
     }
   }
 
