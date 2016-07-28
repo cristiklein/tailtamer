@@ -481,8 +481,11 @@ class MicroService(NamedObject):
     request.
     """
     def __init__(self, env, name, average_work, seed='', degree=1, variance=0,
-            use_tied_requests=False):
+            use_tied_requests=False, relative_variance=None):
         super().__init__(prefix='µs', name=name)
+
+        if relative_variance is not None:
+            variance = average_work * relative_variance
 
         self._env = env
         self._average_work = average_work
