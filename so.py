@@ -112,17 +112,17 @@ def run_simulation(
     search = [
         MicroServiceNg(env, seed=seed, name='search'+str(i),
             average_work=0.00541, relative_variance=relative_variance)
-        for i in range(1)
+        for i in range(3)
     ]
     tag = [
         MicroServiceNg(env, seed=seed, name='tag'+str(i),
             average_work=0.0249, relative_variance=relative_variance)
-        for i in range(1)
+        for i in range(3)
     ]
     db = [
         MicroServiceNg(env, seed=seed, name='db'+str(i),
             average_work=0.0012, relative_variance=relative_variance)
-        for i in range(1)
+        for i in range(4)
     ]
 
     microservices = haproxy + web + redis + search + tag + db
@@ -130,39 +130,20 @@ def run_simulation(
     #
     # Horizontal wiring
     #
-    clients[0].connect_to(haproxy[0])
-    clients[1].connect_to(haproxy[1])
-    clients[2].connect_to(haproxy[2])
-    clients[3].connect_to(haproxy[3])
+    for i in range(4):
+        clients[i].connect_to(haproxy[i])
 
-    haproxy[0].connect_to(web, 0.31)
-    haproxy[1].connect_to(web, 0.31)
-    haproxy[2].connect_to(web, 0.31)
-    haproxy[3].connect_to(web, 0.31)
+    for us in haproxy:
+        us.connect_to(web, 0.31)
 
-    web[0].connect_to(redis, 28)
-    web[1].connect_to(redis, 28)
-    web[2].connect_to(redis, 28)
-    web[3].connect_to(redis, 28)
+    for us in web:
+        us.connect_to(redis, 28)
+        us.connect_to(tag, 0.017)
+        us.connect_to(search, 0.07)
+        us.connect_to(db, 2)
 
-    web[0].connect_to(search, 0.07)
-    web[1].connect_to(search, 0.07)
-    #web[2].connect_to(search, 0.07)
-    #web[3].connect_to(search, 0.07)
-
-    web[0].connect_to(tag, 0.017)
-    web[1].connect_to(tag, 0.017)
-    #web[2].connect_to(tag, 0.017)
-    #web[3].connect_to(tag, 0.017)
-
-    web[0].connect_to(db, 2)
-    web[1].connect_to(db, 2)
-    #web[2].connect_to(db, 2)
-    #web[3].connect_to(db, 2)
-
-    tag[0].connect_to(db, 1)
-    #tag[1].connect_to(db, 1)
-    #tag[2].connect_to(db, 1)
+    for us in tag:
+        us.connect_to(db, 1)
 
     #
     # Vertical wiring
