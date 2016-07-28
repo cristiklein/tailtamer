@@ -9,7 +9,7 @@ p99 <- function(values) {
   quantile(values, .99)
 }
 
-my_plot <- function(input_file_name, x_column, x_label, x_mult=NA) {
+my_plot <- function(input_file_name, x_column, x_label, x_mult=NA, ylim=c(0, 1)) {
   git_dirty <- (length(system('git status --untracked-files=no --porcelain', intern=TRUE)) > 0)
   git_commit <- system('git log -1 --format="%H"', intern=TRUE)
 
@@ -52,7 +52,7 @@ my_plot <- function(input_file_name, x_column, x_label, x_mult=NA) {
   dodge <- position_dodge(width = 0.7)
   p <- ggplot(data, aes(x=x, y=response_time, fill=method, shape=method)) +
     scale_shape_manual(values=seq(0, 6)) +
-    coord_cartesian(ylim=c(0, 1)) +
+    coord_cartesian(ylim=ylim) +
     geom_violin(position = dodge, show.legend = FALSE) +
     labs(title=plot_title, x=x_label, y = "Response time [s]") +
     geom_point(stat = "summary", fun.y = "p99" , position = dodge) +
