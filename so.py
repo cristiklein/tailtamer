@@ -52,10 +52,10 @@ def run_simulation(
         method_param=None,
         arrival_rate=2423,
         context_switch_overhead=0,
-        physical_machines=1,
-        simulation_duration=100,
+        num_physical_machines=20,
+        relative_variance=0.1,
+        simulation_duration=10,
         seed=1,
-        variance=0.1,
     ):
     """
     Wire the simulation entities together, run one simulation and collect
@@ -74,7 +74,7 @@ def run_simulation(
         PhysicalMachine(
             env, num_cpus=16,
             context_switch_overhead=context_switch_overhead)
-        for _ in range(physical_machines)
+        for _ in range(num_physical_machines)
     ]
 
     #
@@ -94,32 +94,32 @@ def run_simulation(
 
     haproxy = [
         MicroServiceNg(env, seed=seed, name='haproxy'+str(i),
-            average_work=0.000001, variance=variance)
+            average_work=0.000001, relative_variance=relative_variance)
         for i in range(0, 4)
     ]
     web = [
         MicroServiceNg(env, seed=seed, name='web'+str(i),
-            average_work=0.0242, variance=variance)
+            average_work=0.0242, relative_variance=relative_variance)
         for i in range(0, 4)
     ]
     redis = [
-        MicroServiceNg(env, seed=seed, name='web'+str(i),
-            average_work=0.00000178, variance=variance)
+        MicroServiceNg(env, seed=seed, name='redis'+str(i),
+            average_work=0.00000178, relative_variance=relative_variance)
         for i in range(0, 2)
     ]
     search = [
         MicroServiceNg(env, seed=seed, name='search'+str(i),
-            average_work=0.00541, variance=variance)
+            average_work=0.00541, relative_variance=relative_variance)
         for i in range(0, 3)
     ]
     tag = [
         MicroServiceNg(env, seed=seed, name='tag'+str(i),
-            average_work=0.0249, variance=variance)
+            average_work=0.0249, relative_variance=relative_variance)
         for i in range(0, 3)
     ]
     db = [
         MicroServiceNg(env, seed=seed, name='db'+str(i),
-            average_work=0.0012, variance=variance)
+            average_work=0.0012, relative_variance=relative_variance)
         for i in range(0, 4)
     ]
 
@@ -153,11 +153,6 @@ def run_simulation(
     web[2].connect_to(tag, 0.017)
     web[3].connect_to(tag, 0.017)
 
-    web[0].connect_to(tag, 0.017)
-    web[1].connect_to(tag, 0.017)
-    web[2].connect_to(tag, 0.017)
-    web[3].connect_to(tag, 0.017)
-
     web[0].connect_to(db, 2)
     web[1].connect_to(db, 2)
     web[2].connect_to(db, 2)
@@ -171,12 +166,14 @@ def run_simulation(
     # Vertical wiring
     #
     virtual_machines = []
+    vm_id = 0
     for microservice in microservices:
         virtual_machine = VirtualMachine(env, num_cpus=16)
         virtual_machine.name = 'vm_' + str(microservice)
         microservice.run_on(virtual_machine)
-        # TODO: Optionally add a VM to PM mapping algorithm.
-        virtual_machine.run_on(physical_machines[0])
+        physical_machine = physical_machines[vm_id % num_physical_machines]
+        vm_id += 1
+        virtual_machine.run_on(physical_machine)
         virtual_machines.append(virtual_machine)
 
     #
@@ -224,7 +221,7 @@ def run_simulation(
         )
         for response_time in response_times]
 
-def main(name='physical_machines', values=[1,2,3,4], output_name=None,
+def main(name='num_physical_machines', values=[20], output_name=None,
         output_values=None, output_filename='results-so.csv'):
     if output_name is None:
         output_name = name
@@ -276,9 +273,6 @@ def main(name='physical_machines', values=[1,2,3,4], output_name=None,
                 row = result._asdict() # pylint: disable=protected-access
                 row.update(future.kwds)
                 writer.writerow(row)
-
-    run_simulation('cfs')
-    run_simulation('')
 
 if __name__ == "__main__":
     main()
