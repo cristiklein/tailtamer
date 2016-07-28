@@ -447,6 +447,11 @@ class OpenLoopClient(object):
 
     def connect_to(self, microservice):
         "Sets the frontend microservice."
+        if type(microservice) is list:
+            if len(microservice) == 1:
+                microservice = microservice[0]
+            else:
+                raise Exception("Not implemented")
         self._downstream_microservice = microservice
 
     def run(self):
@@ -719,8 +724,7 @@ def run_simulation(
     # Connect layer n-1 to all micro-services in layer n
     for caller_layer, callee_layer in pairwise([clients] + layers):
         for caller_microservice in caller_layer:
-            for callee_microservice in callee_layer:
-                caller_microservice.connect_to(callee_microservice)
+            caller_microservice.connect_to(callee_layer)
 
     #
     # Vertical wiring
