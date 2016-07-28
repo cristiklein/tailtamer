@@ -206,7 +206,7 @@ def run_simulation(
         )
         for response_time in response_times]
 
-def main(name='num_physical_cpus', values=[19, 20, 21, 22], output_name=None,
+def main(name='num_physical_cpus', values=[21, 22, 23, 24], output_name=None,
         output_values=None, output_filename='results-so.csv'):
     if output_name is None:
         output_name = name
