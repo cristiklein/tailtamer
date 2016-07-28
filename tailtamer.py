@@ -732,6 +732,7 @@ def run_simulation(
     for caller_layer, callee_layer in pairwise([clients] + layers):
         for caller_microservice in caller_layer:
             caller_microservice.connect_to(callee_layer)
+    del layers
 
     #
     # Vertical wiring
@@ -775,7 +776,7 @@ def run_simulation(
     # Sanity check
     #
     expected_cpu_time = sum([
-        us.total_work for layer in layers for us in layer])
+        us.total_work for us in microservices])
 
     # Ensure VMs did not produce more CPU that requests could have consumed
     actual_vm_cpu_time = sum([vm.cpu_time for vm in virtual_machines])
@@ -788,10 +789,10 @@ def run_simulation(
                  'PM CPU time check failed')
 
     wasted_cpu_time = sum([
-        us.total_work_wasted for layer in layers for us in layer])
+        us.total_work_wasted for us in microservices])
 
     num_cancelled_requests = sum([
-        us.num_cancelled_requests for layer in layers for us in layer])
+        us.num_cancelled_requests for us in microservices])
 
     return [
         Result(
