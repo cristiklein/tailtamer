@@ -437,7 +437,7 @@ class OpenLoopClient(object):
     def __init__(self, env, arrival_rate, until=None, seed=1):
         self._arrival_rate = arrival_rate
         self._env = env
-        self._downstream_microservice = None
+        self._downstream = None
         self._requests = []
         self._until = until
         self._random = random.Random()
@@ -445,14 +445,12 @@ class OpenLoopClient(object):
 
         self._env.process(self.run())
 
-    def connect_to(self, microservice):
-        "Sets the frontend microservice."
-        if type(microservice) is list:
-            if len(microservice) == 1:
-                microservice = microservice[0]
-            else:
-                raise Exception("Not implemented")
-        self._downstream_microservice = microservice
+    def connect_to(self, microservices):
+        "Sets the frontend microservice(s)."
+        if type(microservices) is not list:
+            self._downstream = [microservices]
+        else:
+            self._downstream = microservices
 
     def run(self):
         "Main process method, that issues requests."
@@ -469,8 +467,11 @@ class OpenLoopClient(object):
         response time.
         """
         request = Request(start_time=self._env.now)
-        yield self._env.process(
-            self._downstream_microservice.on_request(request))
+        if len(self._downstream) > 1:
+            microservice = self._random.choice(self._downstream)
+        else:
+            microservice = self._downstream[0]
+        yield self._env.process(microservice.on_request(request))
         request.end_time = self._env.now
         self._requests.append(request)
 
@@ -523,6 +524,9 @@ class MicroService(NamedObject):
             degree = self._degree
         assert int(degree) == degree or degree < 1
 
+        if type(microservices) is not list:
+            microservices = [microservices]
+
         self._downstream.append((microservices, degree))
 
     @_trace_request
@@ -536,10 +540,10 @@ class MicroService(NamedObject):
 
         actual_calls = []
         for microservices, degree in self._downstream:
-            if type(microservices) is list:
+            if len(microservices) > 1:
                 microservice = self._random.choice(microservices)
             else:
-                microservice = microservices
+                microservice = microservices[0]
             if degree >= 1:
                 for _ in range(0, degree):
                     actual_calls.append(microservice)
