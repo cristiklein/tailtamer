@@ -665,7 +665,7 @@ def run_simulation(
         arrival_rate=155,
         context_switch_overhead=0,
         layers_config=DEFAULT_LAYERS_CONFIG,
-        physical_machines=1,
+        num_physical_machines=1,
         simulation_duration=100,
         seed=1,
     ):
@@ -686,7 +686,7 @@ def run_simulation(
         PhysicalMachine(
             env, num_cpus=16,
             context_switch_overhead=context_switch_overhead)
-        for _ in range(physical_machines)
+        for _ in range(num_physical_machines)
     ]
 
     #
