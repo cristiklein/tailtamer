@@ -730,13 +730,16 @@ def run_simulation(
     # Vertical wiring
     #
     virtual_machines = []
+    vm_id = 0
     for layer in layers:
         for microservice in layer:
             virtual_machine = VirtualMachine(env, num_cpus=16)
             virtual_machine.name = 'vm_' + str(microservice)
             microservice.run_on(virtual_machine)
-            # TODO: Optionally add a VM to PM mapping algorithm.
-            virtual_machine.run_on(physical_machines[0])
+            # Round-robin VM to PM mapping
+            virtual_machine.run_on(physical_machines[vm_id %
+                num_physical_machines])
+            vm_id += 1
             virtual_machines.append(virtual_machine)
 
     #
