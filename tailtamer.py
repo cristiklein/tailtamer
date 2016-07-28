@@ -702,6 +702,7 @@ def run_simulation(
                        arrival_rate=arrival_rate, until=simulation_duration),
     ]
 
+    microservices = []
     layers = []
     for c in layers_config: # pylint: disable=invalid-name
         layer = []
@@ -714,6 +715,7 @@ def run_simulation(
                 degree=c.degree,
                 use_tied_requests=c.use_tied_requests,
             )
+            microservices.append(microservice)
             layer.append(microservice)
         layers.append(layer)
 
@@ -731,16 +733,15 @@ def run_simulation(
     #
     virtual_machines = []
     vm_id = 0
-    for layer in layers:
-        for microservice in layer:
-            virtual_machine = VirtualMachine(env, num_cpus=16)
-            virtual_machine.name = 'vm_' + str(microservice)
-            microservice.run_on(virtual_machine)
-            # Round-robin VM to PM mapping
-            virtual_machine.run_on(physical_machines[vm_id %
-                num_physical_machines])
-            vm_id += 1
-            virtual_machines.append(virtual_machine)
+    for microservice in microservices:
+        virtual_machine = VirtualMachine(env, num_cpus=16)
+        virtual_machine.name = 'vm_' + str(microservice)
+        microservice.run_on(virtual_machine)
+        # Round-robin VM to PM mapping
+        virtual_machine.run_on(physical_machines[vm_id %
+            num_physical_machines])
+        vm_id += 1
+        virtual_machines.append(virtual_machine)
 
     #
     # Configure schedulers
