@@ -541,30 +541,30 @@ class MicroService(NamedObject):
         actual_calls = []
         for microservices, degree in self._downstream:
             if len(microservices) > 1:
-                microservice = self._random.choice(microservices)
+                microservice, secondary = self._random.sample(microservices, 2)
             else:
-                microservice = microservices[0]
+                microservice, secondary = microservices[0], microservices[0]
             if degree >= 1:
                 for _ in range(0, degree):
-                    actual_calls.append(microservice)
+                    actual_calls.append((microservice, secondary))
             else:
                 to_call = self._random.uniform(0, 1) < degree
                 if to_call:
-                    actual_calls.append(microservice)
+                    actual_calls.append((microservice, secondary))
 
         num_computations = len(actual_calls)+1
         demand_between_calls = self._env.to_time(demand / num_computations)
 
         yield self._env.process(
             self._compute(request, demand_between_calls, tie))
-        for microservice in actual_calls:
+        for microservice, secondary in actual_calls:
             if not self._use_tied_requests:
                 yield self._env.process(microservice.on_request(request))
             else:
                 tie_pair = RequestTiePair(self._env)
                 r1 = self._env.process(microservice.on_request(request,
                     tie_pair.high_prio))
-                r2 = self._env.process(microservice.on_request(request,
+                r2 = self._env.process(secondary.on_request(request,
                     tie_pair.low_prio))
 
                 try:
@@ -675,6 +675,7 @@ def run_simulation(
         context_switch_overhead=0,
         layers_config=DEFAULT_LAYERS_CONFIG,
         num_physical_machines=1,
+        num_physical_cpus=16,
         simulation_duration=100,
         seed=1,
     ):
@@ -693,7 +694,7 @@ def run_simulation(
     #
     physical_machines = [
         PhysicalMachine(
-            env, num_cpus=16,
+            env, num_cpus=num_physical_cpus,
             context_switch_overhead=context_switch_overhead)
         for _ in range(num_physical_machines)
     ]
