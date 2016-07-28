@@ -815,7 +815,7 @@ def explore_param(output_filename, name, values, output_name=None,
             futures.append(future)
 
     with open(output_filename, 'w') as output_file:
-        fieldnames = list(future.kwds.keys())
+        fieldnames = sorted(list(future.kwds.keys()))
         fieldnames += Result._fields # pylint: disable=protected-access
         writer = csv.DictWriter(output_file, fieldnames=fieldnames)
         writer.writeheader()
