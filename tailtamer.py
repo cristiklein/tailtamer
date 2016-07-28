@@ -491,7 +491,7 @@ class MicroService(NamedObject):
         self._average_work = average_work
         self._variance = variance
         self._executor = None
-        self._downstream_microservices = []
+        self._downstream = []
         self._degree = degree
         self._random = random.Random()
         self._random.seed(str(self)+str(seed))
@@ -508,9 +508,17 @@ class MicroService(NamedObject):
         """
         self._executor = executor
 
-    def connect_to(self, microservice):
-        "Add a downstream microservice to be called for each request."
-        self._downstream_microservices.append(microservice)
+    def connect_to(self, microservices, degree=None):
+        """
+        Add an instance or a list of downstream microservice to be called for
+        each request, a given number of times (degree>=1) or with a given
+        probability (degree<1).
+        """
+        if degree is None:
+            degree = self._degree
+        assert int(degree) == degree or degree < 1
+
+        self._downstream.append((microservices, degree))
 
     @_trace_request
     def on_request(self, request, tie=None):
@@ -520,31 +528,45 @@ class MicroService(NamedObject):
         """
         demand = max(
             self._random.normalvariate(self._average_work, self._variance), 0)
-        num_computations = len(self._downstream_microservices)*self._degree+1
+
+        actual_calls = []
+        for microservices, degree in self._downstream:
+            if type(microservices) is list:
+                microservice = self._random.choice(microservices)
+            else:
+                microservice = microservices
+            if degree >= 1:
+                for _ in range(0, degree):
+                    actual_calls.append(microservice)
+            else:
+                to_call = self._random.uniform(0, 1) < degree
+                if to_call:
+                    actual_calls.append(microservice)
+
+        num_computations = len(actual_calls)+1
         demand_between_calls = self._env.to_time(demand / num_computations)
 
         yield self._env.process(
             self._compute(request, demand_between_calls, tie))
-        for _ in range(self._degree):
-            for microservice in self._downstream_microservices:
-                if not self._use_tied_requests:
-                    yield self._env.process(microservice.on_request(request))
-                else:
-                    tie_pair = RequestTiePair(self._env)
-                    r1 = self._env.process(microservice.on_request(request,
-                        tie_pair.high_prio))
-                    r2 = self._env.process(microservice.on_request(request,
-                        tie_pair.low_prio))
+        for microservice in actual_calls:
+            if not self._use_tied_requests:
+                yield self._env.process(microservice.on_request(request))
+            else:
+                tie_pair = RequestTiePair(self._env)
+                r1 = self._env.process(microservice.on_request(request,
+                    tie_pair.high_prio))
+                r2 = self._env.process(microservice.on_request(request,
+                    tie_pair.low_prio))
 
-                    try:
-                        yield r1 | r2
-                    except Cancelled:
-                        if r2.triggered and not r2.ok:
-                            yield r1
-                        else:
-                            yield r2
-                yield self._env.process(
-                    self._compute(request, demand_between_calls))
+                try:
+                    yield r1 | r2
+                except Cancelled:
+                    if r2.triggered and not r2.ok:
+                        yield r1
+                    else:
+                        yield r2
+            yield self._env.process(
+                self._compute(request, demand_between_calls))
 
     def _compute(self, request, demand, tie=None):
         """
