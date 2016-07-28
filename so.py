@@ -29,13 +29,14 @@ class MicroServiceNg(MicroService):
 
         actual_calls = []
         for microservices, degree in self._downstream_microservices:
+            microservice = self._random.choice(microservices)
             if degree >= 1:
                 for _ in range(0, degree):
-                    actual_calls.append(self._random.choice(microservices))
+                    actual_calls.append(microservice)
             else:
                 to_call = self._random.uniform(0, 1) < degree
                 if to_call:
-                    actual_calls.append(self._random.choice(microservices))
+                    actual_calls.append(microservice)
 
         num_computations = len(actual_calls)+1
         demand_between_calls = self._env.to_time(demand / num_computations)
@@ -52,7 +53,8 @@ def run_simulation(
         method_param=None,
         arrival_rate=2423,
         context_switch_overhead=0,
-        num_physical_machines=20,
+        num_physical_machines=1,
+        num_physical_cpus=16,
         relative_variance=0.1,
         simulation_duration=10,
         seed=1,
@@ -72,7 +74,7 @@ def run_simulation(
     #
     physical_machines = [
         PhysicalMachine(
-            env, num_cpus=16,
+            env, num_cpus=num_physical_cpus,
             context_switch_overhead=context_switch_overhead)
         for _ in range(num_physical_machines)
     ]
@@ -95,32 +97,32 @@ def run_simulation(
     haproxy = [
         MicroServiceNg(env, seed=seed, name='haproxy'+str(i),
             average_work=0.000001, relative_variance=relative_variance)
-        for i in range(0, 4)
+        for i in range(4)
     ]
     web = [
         MicroServiceNg(env, seed=seed, name='web'+str(i),
             average_work=0.0242, relative_variance=relative_variance)
-        for i in range(0, 4)
+        for i in range(4)
     ]
     redis = [
         MicroServiceNg(env, seed=seed, name='redis'+str(i),
             average_work=0.00000178, relative_variance=relative_variance)
-        for i in range(0, 2)
+        for i in range(2)
     ]
     search = [
         MicroServiceNg(env, seed=seed, name='search'+str(i),
             average_work=0.00541, relative_variance=relative_variance)
-        for i in range(0, 3)
+        for i in range(1)
     ]
     tag = [
         MicroServiceNg(env, seed=seed, name='tag'+str(i),
             average_work=0.0249, relative_variance=relative_variance)
-        for i in range(0, 3)
+        for i in range(1)
     ]
     db = [
         MicroServiceNg(env, seed=seed, name='db'+str(i),
             average_work=0.0012, relative_variance=relative_variance)
-        for i in range(0, 4)
+        for i in range(1)
     ]
 
     microservices = haproxy + web + redis + search + tag + db
@@ -145,22 +147,22 @@ def run_simulation(
 
     web[0].connect_to(search, 0.07)
     web[1].connect_to(search, 0.07)
-    web[2].connect_to(search, 0.07)
-    web[3].connect_to(search, 0.07)
+    #web[2].connect_to(search, 0.07)
+    #web[3].connect_to(search, 0.07)
 
     web[0].connect_to(tag, 0.017)
     web[1].connect_to(tag, 0.017)
-    web[2].connect_to(tag, 0.017)
-    web[3].connect_to(tag, 0.017)
+    #web[2].connect_to(tag, 0.017)
+    #web[3].connect_to(tag, 0.017)
 
     web[0].connect_to(db, 2)
     web[1].connect_to(db, 2)
-    web[2].connect_to(db, 2)
-    web[3].connect_to(db, 2)
+    #web[2].connect_to(db, 2)
+    #web[3].connect_to(db, 2)
 
     tag[0].connect_to(db, 1)
-    tag[1].connect_to(db, 1)
-    tag[2].connect_to(db, 1)
+    #tag[1].connect_to(db, 1)
+    #tag[2].connect_to(db, 1)
 
     #
     # Vertical wiring
@@ -171,6 +173,8 @@ def run_simulation(
         virtual_machine = VirtualMachine(env, num_cpus=16)
         virtual_machine.name = 'vm_' + str(microservice)
         microservice.run_on(virtual_machine)
+
+        # round-robin VM to PM mapping
         physical_machine = physical_machines[vm_id % num_physical_machines]
         vm_id += 1
         virtual_machine.run_on(physical_machine)
@@ -221,7 +225,7 @@ def run_simulation(
         )
         for response_time in response_times]
 
-def main(name='num_physical_machines', values=[20], output_name=None,
+def main(name='num_physical_cpus', values=[19, 20, 21, 22], output_name=None,
         output_values=None, output_filename='results-so.csv'):
     if output_name is None:
         output_name = name
