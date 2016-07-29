@@ -670,6 +670,9 @@ DEFAULT_LAYERS_CONFIG = (
 
 def layered_microservices(env, seed, simulation_duration, arrival_rate,
         layers_config, **kwds):
+    """
+    Produces a layered micro-service architecture and a single client.
+    """
     clients = [
         OpenLoopClient(env, seed=seed,
                        arrival_rate=arrival_rate, until=simulation_duration),
