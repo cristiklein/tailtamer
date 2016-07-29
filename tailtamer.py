@@ -707,6 +707,77 @@ def layered_microservices(env, seed, simulation_duration, arrival_rate,
 
     return clients, microservices
 
+def so_microservices(env, seed, simulation_duration, arrival_rate,
+        relative_variance=0.1, **kwds):
+    """
+    Produces a micro-service architecture similar to StackOverflow:
+    https://nickcraver.com/blog/2016/02/17/stack-overflow-the-architecture-2016-edition/
+    """
+    clients = [
+        OpenLoopClient(env, seed=seed,
+                       arrival_rate=arrival_rate/4, until=simulation_duration),
+        OpenLoopClient(env, seed=seed,
+                       arrival_rate=arrival_rate/4, until=simulation_duration),
+        OpenLoopClient(env, seed=seed,
+                       arrival_rate=arrival_rate/4, until=simulation_duration),
+        OpenLoopClient(env, seed=seed,
+                       arrival_rate=arrival_rate/4, until=simulation_duration),
+    ]
+
+
+    haproxy = [
+        MicroService(env, seed=seed, name='haproxy'+str(i),
+            average_work=0.000001, relative_variance=relative_variance)
+        for i in range(4)
+    ]
+    web = [
+        MicroService(env, seed=seed, name='web'+str(i),
+            average_work=0.0242, relative_variance=relative_variance)
+        for i in range(4)
+    ]
+    redis = [
+        MicroService(env, seed=seed, name='redis'+str(i),
+            average_work=0.00000178, relative_variance=relative_variance)
+        for i in range(2)
+    ]
+    search = [
+        MicroService(env, seed=seed, name='search'+str(i),
+            average_work=0.00541, relative_variance=relative_variance)
+        for i in range(3)
+    ]
+    tag = [
+        MicroService(env, seed=seed, name='tag'+str(i),
+            average_work=0.0249, relative_variance=relative_variance)
+        for i in range(3)
+    ]
+    db = [
+        MicroService(env, seed=seed, name='db'+str(i),
+            average_work=0.0012, relative_variance=relative_variance)
+        for i in range(4)
+    ]
+
+    microservices = haproxy + web + redis + search + tag + db
+
+    #
+    # Horizontal wiring
+    #
+    for i in range(4):
+        clients[i].connect_to(haproxy[i])
+
+    for us in haproxy:
+        us.connect_to(web, 0.31)
+
+    for us in web:
+        us.connect_to(redis, 28)
+        us.connect_to(tag, 0.017)
+        us.connect_to(search, 0.07)
+        us.connect_to(db, 2)
+
+    for us in tag:
+        us.connect_to(db, 1)
+
+    return clients, microservices
+
 def run_simulation(
         method,
         method_param=None,
