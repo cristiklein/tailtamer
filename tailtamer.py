@@ -668,40 +668,8 @@ DEFAULT_LAYERS_CONFIG = (
         use_tied_requests=False),
 )
 
-def run_simulation(
-        method,
-        method_param=None,
-        arrival_rate=155,
-        context_switch_overhead=0,
-        layers_config=DEFAULT_LAYERS_CONFIG,
-        num_physical_machines=1,
-        num_physical_cpus=16,
-        simulation_duration=100,
-        seed=1,
-    ):
-    """
-    Wire the simulation entities together, run one simulation and collect
-    results.
-    """
-
-    #
-    # Simulation environment
-    #
-    env = NsSimPyEnvironment()
-
-    #
-    # Infrastructure layer
-    #
-    physical_machines = [
-        PhysicalMachine(
-            env, num_cpus=num_physical_cpus,
-            context_switch_overhead=context_switch_overhead)
-        for _ in range(num_physical_machines)
-    ]
-
-    #
-    # Software layer
-    #
+def layered_microservices(env, seed, simulation_duration, arrival_rate,
+        layers_config, **kwds):
     clients = [
         OpenLoopClient(env, seed=seed,
                        arrival_rate=arrival_rate, until=simulation_duration),
@@ -733,7 +701,45 @@ def run_simulation(
         for caller_microservice in caller_layer:
             for callee_microservice in callee_layer:
                 caller_microservice.connect_to(callee_microservice)
-    del layers
+
+    return clients, microservices
+
+def run_simulation(
+        method,
+        method_param=None,
+        arrival_rate=155,
+        context_switch_overhead=0,
+        layers_config=DEFAULT_LAYERS_CONFIG,
+        software_layer_generator=layered_microservices,
+        num_physical_machines=1,
+        num_physical_cpus=16,
+        simulation_duration=100,
+        seed=1,
+    ):
+    """
+    Wire the simulation entities together, run one simulation and collect
+    results.
+    """
+
+    #
+    # Simulation environment
+    #
+    env = NsSimPyEnvironment()
+
+    #
+    # Infrastructure layer
+    #
+    physical_machines = [
+        PhysicalMachine(
+            env, num_cpus=num_physical_cpus,
+            context_switch_overhead=context_switch_overhead)
+        for _ in range(num_physical_machines)
+    ]
+
+    #
+    # Software layer
+    #
+    clients, microservices = software_layer_generator(**locals())
 
     #
     # Vertical wiring
