@@ -1038,6 +1038,14 @@ def main():
     explore_param('results-ctx.csv', 'context_switch_overhead',
         ['0', '0.000001', '0.000010', '0.000100'])
 
+    # Stackoverflow Architecture
+    explore_param('results-so.csv',
+        'num_physical_cpus', [21, 22, 23, 24],
+        arrival_rate=2423,
+        context_switch_overhead='0.000001',
+        software_layer_generator=so_microservices,
+        simulation_duration=10)
+
     ended_at = time.time()
     logger.info('Simulations completed in %f seconds', ended_at-started_at)
 
