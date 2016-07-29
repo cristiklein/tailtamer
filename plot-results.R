@@ -92,7 +92,7 @@ my_plot <- function(input_file_name, x_column, x_label, x_mult=NA, ylim=c(0, 1))
 
 my_plot('results-ar.csv', 'arrival_rate', 'Arrival rate [requests/s]')
 my_plot('results-deg.csv', 'degree', 'Degree of last layer')
-my_plot('results-mul.csv', 'multiplicity', 'Multiplicity of last layer')
+my_plot('results-mul.csv', 'multiplicity', 'Number of partitions')
 my_plot('results-var.csv', 'relative_variance', 'Relative Variance [%]', x_mult=100)
 my_plot('results-ctx.csv', 'context_switch_overhead', 'Context Switch Overhead [micro-seconds]', x_mult=1000000)
 my_plot('results-so.csv', 'num_physical_cpus', '# Physical CPUs for SO')
