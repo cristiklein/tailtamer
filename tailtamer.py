@@ -811,7 +811,7 @@ def run_simulation(
         for response_time in response_times]
 
 def explore_param(output_filename, name, values, output_name=None,
-        output_values=None):
+        output_values=None, **simulation_kwds):
     """
     Runs several simulations for all scheduling methods, varying the given
     parameter along the given values, writing the results to the given output
@@ -840,6 +840,7 @@ def explore_param(output_filename, name, values, output_name=None,
     for method, method_param, use_tied_requests in method_param_tie_tuples:
         for value, output_value in zip(values, output_values):
             kwds = dict(method=method, method_param=method_param)
+            kwds.update(simulation_kwds)
             kwds[name] = value
             if use_tied_requests:
                 if name is 'layers_config':
