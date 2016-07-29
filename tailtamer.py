@@ -731,7 +731,8 @@ def run_simulation(
     # Connect layer n-1 to all micro-services in layer n
     for caller_layer, callee_layer in pairwise([clients] + layers):
         for caller_microservice in caller_layer:
-            caller_microservice.connect_to(callee_layer)
+            for callee_microservice in callee_layer:
+                caller_microservice.connect_to(callee_microservice)
     del layers
 
     #
