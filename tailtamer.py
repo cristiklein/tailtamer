@@ -716,11 +716,11 @@ def so_microservices(env, seed, simulation_duration, arrival_rate,
     clients = [
         OpenLoopClient(env, seed=seed,
                        arrival_rate=arrival_rate/4, until=simulation_duration),
-        OpenLoopClient(env, seed=seed,
+        OpenLoopClient(env, seed=seed+1,
                        arrival_rate=arrival_rate/4, until=simulation_duration),
-        OpenLoopClient(env, seed=seed,
+        OpenLoopClient(env, seed=seed+2,
                        arrival_rate=arrival_rate/4, until=simulation_duration),
-        OpenLoopClient(env, seed=seed,
+        OpenLoopClient(env, seed=seed+3,
                        arrival_rate=arrival_rate/4, until=simulation_duration),
     ]
 
