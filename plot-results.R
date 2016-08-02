@@ -67,7 +67,7 @@ my_plot <- function(input_file_name, x_column, x_label, x_mult=NA, ylim=c(0, 1))
     )
   
   scale=1 # 1.75 for presentations
-  ggsave(paste0(base_file_name, ".pdf"), plot=p, height=3*scale, width=4*scale)
+  ggsave(paste0(base_file_name, ".pdf"), plot=p, height=3*scale, width=4*scale, device=cairo_pdf)
   
   dodge <- position_dodge(width = 0.5)
   p <- ggplot(data_improvement, aes(x=x, y=worse, group=method, shape=method)) +
@@ -87,7 +87,7 @@ my_plot <- function(input_file_name, x_column, x_label, x_mult=NA, ylim=c(0, 1))
     )
   
   scale=1 # 1.75 for presentations
-  ggsave(paste0(base_file_name, "-rel.pdf"), plot=p, height=3*scale, width=4*scale)
+  ggsave(paste0(base_file_name, "-rel.pdf"), plot=p, height=3*scale, width=4*scale, device=cairo_pdf)
 }
 
 my_plot('results-ar.csv', 'arrival_rate', 'Arrival rate [requests/s]')
