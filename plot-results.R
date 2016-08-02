@@ -54,7 +54,7 @@ my_plot <- function(input_file_name, x_column, x_label, x_mult=NA, ylim=c(0, 1))
     scale_shape_manual(values=seq(0, 6)) +
     coord_cartesian(ylim=ylim) +
     geom_violin(position = dodge, show.legend = FALSE) +
-    labs(title=plot_title, x=x_label, y = "Response time [s]") +
+    labs(title=plot_title, x=x_label, y = "Response time:\ndistribution and 99th percentile [s]") +
     geom_point(stat = "summary", fun.y = "p99" , position = dodge) +
     guides(shape=guide_legend(nrow=1, title=NULL), fill="none") +
     theme(
@@ -73,7 +73,7 @@ my_plot <- function(input_file_name, x_column, x_label, x_mult=NA, ylim=c(0, 1))
   p <- ggplot(data_improvement, aes(x=x, y=worse, group=method, shape=method)) +
     scale_shape_manual(values=seq(0, 6)) +
     coord_cartesian(ylim=c(0, 80)) +
-    labs(title=plot_title, x=x_label, y = "Increase in 99th percentile RT [%]") +
+    labs(title=plot_title, x=x_label, y = "Increase in\n99th percentile response time [%]") +
     geom_line(mapping=aes(colour=method), show.legend=FALSE, position=dodge) +
     geom_point(position = dodge) +
     guides(shape=guide_legend(nrow=1, title=NULL)) +
