@@ -222,6 +222,7 @@ class VirtualMachine(NamedObject):
         'ps',
         'tt',
         'tt+p',
+        'ttlas',
     ]
 
     def __init__(self, env, num_cpus, prefix='vm', name=None,
@@ -300,6 +301,9 @@ class VirtualMachine(NamedObject):
         elif scheduler == 'tt+p':
             preempt = True
             priority = request.start_time
+        elif scheduler == 'ttlas':
+            preempt = False
+            priority = request.attained_time
         else:
             raise NotImplementedError() # should never get here
 
@@ -927,6 +931,7 @@ def explore_param(output_filename, name, values, output_name=None,
         ('tt'  , '0.005', False), # pylint: disable=bad-whitespace
         ('tt'  , '0.020', False), # pylint: disable=bad-whitespace
         ('tt+p', None   , False), # pylint: disable=bad-whitespace
+        ('ttlas', '0.005', False), # pylint: disable=bad-whitespace
     ]
 
     workers = multiprocessing.Pool() # pylint: disable=no-member
