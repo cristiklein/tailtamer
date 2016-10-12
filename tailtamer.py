@@ -284,6 +284,7 @@ class VirtualMachine(NamedObject):
         sched_latency = self._env.to_time('0.024')
         sched_min_granularity = self._env.to_time('0.003')
 
+        # A smaller number means higher priority.
         if scheduler == 'cfs':
             preempt = False
             priority = 0
