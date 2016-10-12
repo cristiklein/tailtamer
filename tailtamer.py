@@ -367,6 +367,8 @@ class VirtualMachine(NamedObject):
                     self._cpu_time += work_consumed
                     max_work_to_consume -= work_consumed
                     self._num_active_cpus -= 1
+                    if executor is None:
+                        request.add_attained_time(work_consumed)
 
     @property
     def cpu_time(self):
@@ -401,6 +403,7 @@ class Request(NamedObject):
         self._start_time = start_time
         self._end_time = None
         self._trace = []
+        self._attained_time = 0
 
     @property
     def start_time(self):
@@ -430,6 +433,14 @@ class Request(NamedObject):
     def trace(self):
         "Return the trace of this request."
         return self._trace
+
+    @property
+    def attained_time(self):
+        "Return the amount of time this request has been processed so far."
+        return self._attained_time
+
+    def add_attained_time(self, by):
+        self._attained_time += by
 
 class OpenLoopClient(object):
     """
@@ -480,6 +491,11 @@ class OpenLoopClient(object):
     def response_times(self):
         "Returns all measured response times."
         return [r.end_time - r.start_time for r in self._requests]
+
+    @property
+    def total_attained_time(self):
+        "Returns the total attained time for all requests."
+        return sum(r.attained_time for r in self._requests)
 
 class MicroService(NamedObject):
     """
@@ -626,8 +642,9 @@ def assert_equal(actual, expected, message):
     """
     Asserts that two objects are equal.
     """
-    assert actual == expected, \
-        '{0}: actual {1}, expected {2}'.format(message, actual, expected)
+    if not (actual == expected):
+        raise AssertionError('{0}: actual {1}, expected {2}'.format(message,
+            actual, expected))
 
 QUANTIZER = decimal.Decimal('1.000000000')
 
@@ -869,6 +886,11 @@ def run_simulation(
     actual_pm_cpu_time = sum([pm.cpu_time for pm in physical_machines])
     assert_equal(actual_pm_cpu_time, expected_cpu_time,
                  'PM CPU time check failed')
+
+    # Same for requests
+    total_attained_time = sum(client.total_attained_time for client in clients)
+    assert_equal(actual_pm_cpu_time, total_attained_time,
+                 'Total attained time check failed')
 
     wasted_cpu_time = sum([
         us.total_work_wasted for us in microservices])
