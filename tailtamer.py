@@ -933,7 +933,8 @@ def explore_param(output_filename, name, values, output_name=None,
         ('tt'  , '0.005', False), # pylint: disable=bad-whitespace
         ('tt'  , '0.020', False), # pylint: disable=bad-whitespace
         ('tt+p', None   , False), # pylint: disable=bad-whitespace
-        ('ttlas', '0.001', False), # pylint: disable=bad-whitespace
+        # Disabled for now: gives really bad performance
+        #('ttlas', '0.001', False), # pylint: disable=bad-whitespace
     ]
 
     workers = multiprocessing.Pool() # pylint: disable=no-member
