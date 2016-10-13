@@ -262,7 +262,7 @@ class VirtualMachine(NamedObject):
             raise ValueError('Invalid scheduler {0}. Allowed schedulers: {1}'
                              .format(scheduler, self.ALLOWED_SCHEDULERS))
         if timeslice is None:
-            if scheduler in ['ps', 'tt']:
+            if scheduler in ['ps', 'tt', 'ttlas']:
                 timeslice = '0.005'
             else:
                 timeslice = 'inf'
