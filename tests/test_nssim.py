@@ -31,7 +31,7 @@ def test_ns_ok1():
     Integer timeout should be okey
     """
     env = tailtamer.NsSimPyEnvironment()
-    env.process(some_process(env, 10))
+    env.process(some_process(env, env.to_time(10)))
     env.run()
     assert env.now == 10
 
