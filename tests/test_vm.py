@@ -3,14 +3,15 @@ from .context import tailtamer
 import simpy
 import sys
 
-def generate_one_request(env, vm, requests, start_time=0, this_vm_start_time=0):
+def generate_one_request(env, vm, requests, start_time=0, this_vm_start_time=0,
+        work=1):
     request = tailtamer.Request(env.to_time(start_time))
     requests.append(request)
 
     def proc():
         yield env.timeout(env.to_time(this_vm_start_time))
-        work = tailtamer.Work(env, env.to_time(1))
-        yield env.process(vm.execute(request, work))
+        w = tailtamer.Work(env, env.to_time(work))
+        yield env.process(vm.execute(request, w))
         request.end_time = env.now
     
     env.process(proc())
@@ -126,3 +127,22 @@ def test_tail_tamer_with_preemption_nested():
 
     assert vm.cpu_time==3
     assert pm.cpu_time==3, pm.cpu_time
+
+def test_ttlas():
+    env = tailtamer.NsSimPyEnvironment()
+    vm = tailtamer.VirtualMachine(env, num_cpus=1)
+    vm.set_scheduler('ttlas')
+
+    requests = []
+
+    generate_one_request(env, vm, requests, this_vm_start_time=0, work=3)
+    generate_one_request(env, vm, requests, this_vm_start_time=1, work=2)
+    generate_one_request(env, vm, requests, this_vm_start_time=2, work=1)
+
+    env.run()
+
+    assert requests[0].end_time==6, requests[0].end_time
+    assert requests[1].end_time==5, requests[1].end_time
+    assert requests[2].end_time==3, requests[2].end_time
+
+    assert vm.cpu_time==6, vm.cpu_time
