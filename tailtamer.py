@@ -231,8 +231,8 @@ class VirtualMachine(NamedObject):
 
         self._env = env
         self._cpus = simpy.PreemptiveResource(env, num_cpus)
-        self._scheduler = ('ps', 0.005)
         self._executor = None
+        self.set_scheduler('ps', '0.005')
 
         self._context_switch_overhead = \
             self._env.to_time(context_switch_overhead)
