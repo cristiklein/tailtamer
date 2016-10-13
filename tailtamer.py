@@ -308,6 +308,8 @@ class VirtualMachine(NamedObject):
             raise NotImplementedError() # should never get here
 
         while max_work_to_consume > 0 and not work.consumed:
+            if scheduler == 'ttlas':
+                priority = request.attained_time
             with cpu_request(priority=priority, preempt=preempt) as req:
                 try:
                     amount_consumed_before = work.amount_consumed
@@ -931,7 +933,7 @@ def explore_param(output_filename, name, values, output_name=None,
         ('tt'  , '0.005', False), # pylint: disable=bad-whitespace
         ('tt'  , '0.020', False), # pylint: disable=bad-whitespace
         ('tt+p', None   , False), # pylint: disable=bad-whitespace
-        ('ttlas', '0.005', False), # pylint: disable=bad-whitespace
+        ('ttlas', '0.001', False), # pylint: disable=bad-whitespace
     ]
 
     workers = multiprocessing.Pool() # pylint: disable=no-member
