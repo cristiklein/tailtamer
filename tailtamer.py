@@ -32,12 +32,10 @@ def pretty_kwds(kwds, sep=' '):
     return sep.join(sorted([str(k)+'='+str(v) for k, v in kwds.items()]))
 
 def bounded_pareto(rng, alpha, L, H):
-    while True:
-        U = rng.random()
-        if U < 1: break
+    U = rng.random()
     Ha = H**alpha
     La = L**alpha
-    return int(round((-(U*Ha - U*La - Ha)/(Ha * La)) ** (-1/alpha)))
+    return (-(U*Ha - U*La - Ha)/(Ha * La)) ** (-1.0/alpha)
 
 class NamedObject(object):
     """
