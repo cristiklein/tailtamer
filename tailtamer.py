@@ -567,6 +567,11 @@ class MicroService(NamedObject):
         demand = max(
             self._random.normalvariate(self._average_work, self._variance), 0)
 
+        # XXX: Supposed to favour LAS, but it does not. Maybe our application
+        # model invalidates heavy-tailed demand in total.
+        #demand = bounded_pareto(self._random, 1, self._average_work,
+        #        self._average_work + self._variance + 0.0001)
+
         actual_calls = []
         for microservices, degree in self._downstream:
             if len(microservices) > 1:
