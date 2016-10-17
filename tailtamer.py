@@ -31,6 +31,14 @@ def pretty_kwds(kwds, sep=' '):
     "pretty_kwds(a=1, b=2) -> 'a=1 b=2'"
     return sep.join(sorted([str(k)+'='+str(v) for k, v in kwds.items()]))
 
+def bounded_pareto(rng, alpha, L, H):
+    while True:
+        U = rng.random()
+        if U < 1: break
+    Ha = H**alpha
+    La = L**alpha
+    return int(round((-(U*Ha - U*La - Ha)/(Ha * La)) ** (-1/alpha)))
+
 class NamedObject(object):
     """
     Gives classes a more human-friendly string identification as retrieved
