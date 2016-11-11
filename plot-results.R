@@ -90,7 +90,7 @@ my_plot <- function(input_file_name, x_column, x_label, x_mult=NA, ylim=c(0, 1))
   ggsave(paste0(base_file_name, "-rel.pdf"), plot=p, height=3*scale, width=4*scale, device=cairo_pdf)
 }
 
-my_plot('results-ar.csv', 'arrival_rate', 'Arrival rate [requests/s]')
+my_plot('results-ar.csv', 'load', 'Load')
 my_plot('results-deg.csv', 'degree', 'Degree')
 my_plot('results-mul.csv', 'multiplicity', 'Multiplicity')
 my_plot('results-var.csv', 'relative_variance', 'Coefficient of variation [%]', x_mult=100)

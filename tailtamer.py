@@ -816,7 +816,7 @@ def so_microservices(env, seed, simulation_duration, arrival_rate,
 def run_simulation(
         method,
         method_param=None,
-        arrival_rate=155,
+        arrival_rate=152,
         context_switch_overhead=0,
         layers_config=DEFAULT_LAYERS_CONFIG,
         software_layer_generator=layered_microservices,
@@ -1041,7 +1041,11 @@ def main():
     started_at = time.time()
     logger.info('Starting simulations')
 
-    explore_param('results-ar.csv', 'arrival_rate', [140, 145, 150, 155])
+    loads = [ 0.8, 0.825, 0.85, 0.875, 0.9, 0.925, 0.95, 0.975 ]
+    explore_param('results-ar.csv', 'arrival_rate',
+        [load*160.0 for load in loads],
+        output_name='load',
+        output_values=loads)
     
     # Variance
     explore_param('results-var.csv', 'layers_config',
