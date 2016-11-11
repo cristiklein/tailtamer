@@ -26,7 +26,7 @@ plot: .plot.timestamp
 	touch $@
 
 view: plot
-	pdftk *.csv*pdf output results.pdf
+	pdftk results-*.pdf output results.pdf
 	evince results.pdf
 
 .PHONY: help init test run plot view
