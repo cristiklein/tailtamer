@@ -20,6 +20,11 @@ my_plot <- function(input_file_name, x_column, x_label, x_mult=NA, ylim=c(0, 1))
     data$x <- as.factor(data[[x_column]])
   else
     data$x <- as.factor(data[[x_column]] * x_mult)
+
+  # Make method name friendlier
+  friendly_names  = c("fifo", "cfs", "tie"    , "tt05"    , "tt20"    , "ttP")
+  simulator_names = c("fifo", "cfs", "cfs+tie", "tt_0.005", "tt_0.020", "tt+p")
+  data$method <- friendly_names[ match(data$method, simulator_names) ]
   
   # TODO: super-inefficient
   data_summary <- NULL
@@ -32,9 +37,9 @@ my_plot <- function(input_file_name, x_column, x_label, x_mult=NA, ylim=c(0, 1))
 
   data_improvement <- NULL
   for (x in levels(data$x)) {
-    rt99_baseline = min(data_summary$rt99[data_summary$x==x & data_summary$method=='tt+p'])
+    rt99_baseline = min(data_summary$rt99[data_summary$x==x & data_summary$method=='ttP'])
     for (method in unique(data$method)) {
-      if (method != 'tt+p') {
+      if (method != 'ttP') {
         rt99 = min(data_summary$rt99[data_summary$x==x & data_summary$method==method])
         worse = (rt99-rt99_baseline)/rt99_baseline*100
         rbind(data_improvement, data.frame(x=x, method=method, rt99=rt99, worse=worse)) -> data_improvement
@@ -44,8 +49,8 @@ my_plot <- function(input_file_name, x_column, x_label, x_mult=NA, ylim=c(0, 1))
 
   # XXX: ugly, increase horizontal spacing in legend
   # http://stackoverflow.com/questions/29953629/add-horizontal-space-between-legend-items
-  levels(data$method) <- paste0(levels(data$method), "   ")
-  levels(data_improvement$method) <- paste0(levels(data_improvement$method), "   ")
+  levels(data$method) <- paste0(levels(data$method), "      ")
+  levels(data_improvement$method) <- paste0(levels(data_improvement$method), "      ")
 
   plot_title = sprintf('Simulation Results (%s%s)', git_commit, if (git_dirty) '+' else '')
   
