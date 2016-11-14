@@ -54,7 +54,7 @@ my_plot <- function(input_file_name, x_column, x_label, x_mult=NA, ylim=c(0, 1))
     scale_shape_manual(values=seq(0, 6)) +
     coord_cartesian(ylim=ylim) +
     geom_violin(position = dodge, show.legend = FALSE) +
-    labs(title=plot_title, x=x_label, y = "Response time:\ndistribution and 99th percentile [s]") +
+    labs(title=plot_title, x=x_label, y = "Response time:\ndistribution & 99th perc. [s]") +
     geom_point(stat = "summary", fun.y = "p99" , position = dodge) +
     guides(shape=guide_legend(nrow=1, title=NULL), fill="none") +
     theme(
@@ -67,13 +67,13 @@ my_plot <- function(input_file_name, x_column, x_label, x_mult=NA, ylim=c(0, 1))
     )
   
   scale=1 # 1.75 for presentations
-  ggsave(paste0(base_file_name, ".pdf"), plot=p, height=3*scale, width=4*scale, device=cairo_pdf)
+  ggsave(paste0(base_file_name, ".pdf"), plot=p, height=2.5*scale, width=5*scale, device=cairo_pdf)
   
   dodge <- position_dodge(width = 0.5)
   p <- ggplot(data_improvement, aes(x=x, y=worse, group=method, shape=method)) +
     scale_shape_manual(values=seq(0, 6)) +
     coord_cartesian(ylim=c(0, 80)) +
-    labs(title=plot_title, x=x_label, y = "Increase in\n99th percentile response time [%]") +
+    labs(title=plot_title, x=x_label, y = "Increase in 99th perc.\nresponse time [%]") +
     geom_line(mapping=aes(colour=method), show.legend=FALSE, position=dodge) +
     geom_point(position = dodge) +
     guides(shape=guide_legend(nrow=1, title=NULL)) +
@@ -87,7 +87,7 @@ my_plot <- function(input_file_name, x_column, x_label, x_mult=NA, ylim=c(0, 1))
     )
   
   scale=1 # 1.75 for presentations
-  ggsave(paste0(base_file_name, "-rel.pdf"), plot=p, height=3*scale, width=4*scale, device=cairo_pdf)
+  ggsave(paste0(base_file_name, "-rel.pdf"), plot=p, height=2.5*scale, width=5*scale, device=cairo_pdf)
 }
 
 my_plot('results-ar.csv', 'load', 'Load')
