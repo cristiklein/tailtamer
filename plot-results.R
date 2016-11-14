@@ -72,7 +72,7 @@ my_plot <- function(input_file_name, x_column, x_label, x_mult=NA, ylim=c(0, 1))
     )
   
   scale=1 # 1.75 for presentations
-  ggsave(paste0(base_file_name, ".pdf"), plot=p, height=2.5*scale, width=5*scale, device=cairo_pdf)
+  ggsave(paste0(base_file_name, ".pdf"), plot=p, height=2.8*scale, width=5*scale, device=cairo_pdf)
   
   dodge <- position_dodge(width = 0.5)
   p <- ggplot(data_improvement, aes(x=x, y=worse, group=method, shape=method)) +
@@ -92,7 +92,7 @@ my_plot <- function(input_file_name, x_column, x_label, x_mult=NA, ylim=c(0, 1))
     )
   
   scale=1 # 1.75 for presentations
-  ggsave(paste0(base_file_name, "-rel.pdf"), plot=p, height=2.5*scale, width=5*scale, device=cairo_pdf)
+  ggsave(paste0(base_file_name, "-rel.pdf"), plot=p, height=2.8*scale, width=5*scale, device=cairo_pdf)
 }
 
 my_plot('results-ar.csv', 'load', 'Load')
