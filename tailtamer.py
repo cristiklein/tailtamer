@@ -219,6 +219,13 @@ class Work(object):
         """
         return self._remaining == 0
 
+class Thread(object):
+    """
+    Simulates a thread, i.e., something that the scheduler can use to decide
+    what to execute next.
+    """
+    def __init__(self):
+        self.vruntime = 0
 
 class VirtualMachine(NamedObject):
     """
