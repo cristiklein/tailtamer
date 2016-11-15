@@ -286,7 +286,7 @@ class VirtualMachine(NamedObject):
         self._scheduler = (scheduler, self._env.to_time(timeslice))
 
     #@_trace_request
-    def execute(self, request, work, max_work_to_consume='inf'):
+    def execute(self, sched_entity, request, work, max_work_to_consume='inf'):
         """
         Consume the given work up to the given limit. When taking scheduling
         decisions, take into account that the work item is related to the
@@ -374,7 +374,7 @@ class VirtualMachine(NamedObject):
                             yield self._env.timeout(self._context_switch_overhead)
                         yield from work.consume(work_to_consume)
                     else:
-                        yield from executor.execute(request, work,
+                        yield from executor.execute(self._cpu_thread[cpu_id], request, work,
                                                     work_to_consume)
                 except simpy.Interrupt as interrupt:
                     if interrupt.cause.resource == cpus:
@@ -388,6 +388,7 @@ class VirtualMachine(NamedObject):
                     self._cpu_time += work_consumed
                     max_work_to_consume -= work_consumed
                     self._num_active_cpus -= 1
+                    sched_entity.vruntime += work_consumed
                     if executor is None:
                         request.add_attained_time(work_consumed)
                     if cpu_id is not None:
@@ -609,7 +610,7 @@ class MicroService(NamedObject):
         demand_between_calls = self._env.to_time(demand / num_computations)
 
         yield self._env.process(
-            self._compute(request, demand_between_calls, tie))
+            self._compute(thread, request, demand_between_calls, tie))
         for microservice, secondary in actual_calls:
             if not self._use_tied_requests:
                 yield self._env.process(microservice.on_request(request))
@@ -628,7 +629,7 @@ class MicroService(NamedObject):
                     else:
                         yield r2
             yield self._env.process(
-                self._compute(request, demand_between_calls))
+                self._compute(thread, request, demand_between_calls))
 
         # NOTE: In case we exit through an exception, the thread will not
         # be returned to the thread pool. This is intentional, as we assume a
@@ -636,15 +637,16 @@ class MicroService(NamedObject):
         # thread in an unknown state.
         self._thread_pool.append(thread)
 
-    def _compute(self, request, demand, tie=None):
+    def _compute(self, thread, request, demand, tie=None):
         """
         Produces work and wait for the executor to consume it.
         """
+        # TODO: Associate a work item with the request that created it.
         work = Work(self._env, demand, tie)
 
         try:
             before_work_consumed = work.amount_consumed
-            yield self._env.process(self._executor.execute(request, work))
+            yield self._env.process(self._executor.execute(thread, request, work))
             assert work.consumed
             self._total_work += demand
         except Cancelled:
