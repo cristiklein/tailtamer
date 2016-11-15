@@ -330,6 +330,7 @@ class VirtualMachine(NamedObject):
             with cpu_request(priority=priority, preempt=preempt) as req:
                 try:
                     amount_consumed_before = work.amount_consumed
+                    cpu_id = None
 
                     yield req
 
@@ -346,35 +347,32 @@ class VirtualMachine(NamedObject):
                         "concurrently than available CPUs. There "+\
                         "is a bug in the simulator."
 
+                    # This code is a bit cryptic to improve performance. In
+                    # essence, we simulate CPU caches and track what work
+                    # was execute on each CPU. If we find the CPU on which the
+                    # current work was last executed, we consider the cache
+                    # to be hot and no overhead is paid. Otherwise, we
+                    # search for an idle CPU, consider the cache cold and
+                    # pay the overhead.
+                    cache_is_hot = False
+
+                    some_idle_cpu_id = None
+                    for cpu_id in range(len(self._cpu_is_idle)):
+                        if self._cpu_cache[cpu_id] == work:
+                            cache_is_hot = True
+                            break
+                        if self._cpu_is_idle[cpu_id]:
+                            some_idle_cpu_id = cpu_id
+
+                    if not cache_is_hot:
+                        cpu_id = some_idle_cpu_id
+                        self._cpu_cache[cpu_id] = work
+                    self._cpu_is_idle[cpu_id] = False
+
                     if executor is None:
-                        # This code is a bit cryptic to improve performance. In
-                        # essence, we simulate CPU caches and track what work
-                        # was execute on each CPU. If we find the CPU on which the
-                        # current work was last executed, we consider the cache
-                        # to be hot and no overhead is paid. Otherwise, we
-                        # search for an idle CPU, consider the cache cold and
-                        # pay the overhead.
-                        cache_is_hot = False
-
-                        some_idle_cpu_id = None
-                        for cpu_id in range(len(self._cpu_is_idle)):
-                            if self._cpu_cache[cpu_id] == work:
-                                cache_is_hot = True
-                                break
-                            if self._cpu_is_idle[cpu_id]:
-                                some_idle_cpu_id = cpu_id
-
                         if not cache_is_hot:
-                            cpu_id = some_idle_cpu_id
-                            self._cpu_cache[cpu_id] = work
-                        self._cpu_is_idle[cpu_id] = False
-
-                        try:
-                            if not cache_is_hot:
-                                yield self._env.timeout(self._context_switch_overhead)
-                            yield from work.consume(work_to_consume)
-                        finally:
-                            self._cpu_is_idle[cpu_id] = True
+                            yield self._env.timeout(self._context_switch_overhead)
+                        yield from work.consume(work_to_consume)
                     else:
                         yield from executor.execute(request, work,
                                                     work_to_consume)
@@ -392,6 +390,8 @@ class VirtualMachine(NamedObject):
                     self._num_active_cpus -= 1
                     if executor is None:
                         request.add_attained_time(work_consumed)
+                    if cpu_id is not None:
+                        self._cpu_is_idle[cpu_id] = True
 
     @property
     def cpu_time(self):
