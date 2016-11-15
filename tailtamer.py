@@ -256,6 +256,8 @@ class VirtualMachine(NamedObject):
         self._cpu_cache = [ None ] * num_cpus
         ## keep track of which CPUs are busy
         self._cpu_is_idle  = [ True ] * num_cpus
+        ## conversion from VCPU to OS thread, à la type 2 hypervisor
+        self._cpu_thread = [ Thread() for _ in range(num_cpus) ]
 
         self._cpu_time = 0
 
@@ -544,6 +546,7 @@ class MicroService(NamedObject):
 
         self._total_work = 0
         self._total_work_wasted = 0
+        self._thread_pool = []
 
     def run_on(self, executor):
         """
@@ -573,6 +576,13 @@ class MicroService(NamedObject):
         Handles a request; produces work, calls the underlying executor and
         calls downstream microservice.
         """
+
+        # We assume the thread pool is large enough, we do not focus on soft
+        # resource contention in this simulation
+        if not self._thread_pool:
+            self._thread_pool.append(Thread())
+        thread = self._thread_pool.pop()
+
         demand = max(
             self._random.normalvariate(self._average_work, self._variance), 0)
 
@@ -619,6 +629,12 @@ class MicroService(NamedObject):
                         yield r2
             yield self._env.process(
                 self._compute(request, demand_between_calls))
+
+        # NOTE: In case we exit through an exception, the thread will not
+        # be returned to the thread pool. This is intentional, as we assume a
+        # real implementation would create a fresh thread instead of saving a
+        # thread in an unknown state.
+        self._thread_pool.append(thread)
 
     def _compute(self, request, demand, tie=None):
         """
