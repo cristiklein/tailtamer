@@ -328,6 +328,10 @@ class VirtualMachine(NamedObject):
         while max_work_to_consume > 0 and not work.consumed:
             if scheduler == 'ttlas':
                 priority = request.attained_time
+            if scheduler == 'cfs':
+                priority = sched_entity.vruntime
+
+            # For priority "A smaller number means higher priority."
             with cpu_request(priority=priority, preempt=preempt) as req:
                 try:
                     amount_consumed_before = work.amount_consumed
