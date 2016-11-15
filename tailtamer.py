@@ -686,7 +686,7 @@ class NsSimPyEnvironment(simpy.Environment):
         if not QUANTIZER.same_quantum(delay):
             raise RuntimeError(
                 'Sub-nanosecond time injected into simulator: {}'.format(delay))
-        return super().timeout(delay, value)
+        return simpy.Environment.timeout(self, delay, value)
 
 Layer = collections.namedtuple(
     'Layer', 'average_work relative_variance degree multiplicity '+
