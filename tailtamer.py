@@ -624,10 +624,10 @@ class MicroService(NamedObject):
                 try:
                     yield r1 | r2
                 except Cancelled:
-                    if r2.triggered and not r2.ok:
-                        yield r1
-                    else:
-                        yield r2
+                    if not r2.triggered or r2.ok:
+                        # Make r1 always the completed request
+                        r1, r2 = r2, r1
+                    yield r1
             yield self._env.process(
                 self._compute(thread, request, demand_between_calls))
 
