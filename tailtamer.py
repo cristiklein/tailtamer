@@ -624,6 +624,10 @@ class MicroService(NamedObject):
 
                 try:
                     yield r1 | r2
+                    if r2.triggered and r2.ok:
+                        # Make r1 always the completed request
+                        r1, r2 = r2, r1
+                    r2.defused = True
                 except Cancelled:
                     if not r2.triggered or r2.ok:
                         # Make r1 always the completed request
