@@ -18,6 +18,8 @@ import traceback
 
 import simpy
 
+# TODO: This module is getting long, we need to split it up.
+
 Result = collections.namedtuple('Result', 'response_time')
 TraceItem = collections.namedtuple('TraceItem', 'when who direction')
 
