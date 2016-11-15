@@ -132,7 +132,7 @@ class Work(object):
     Simulates work that has to be performed. Work must only be created by
     microservices and consumed by lowest-level executors.
     """
-    def __init__(self, env, work, tie=None):
+    def __init__(self, env, work, request, tie=None):
         assert work >= 0
 
         self._env = env
@@ -140,6 +140,7 @@ class Work(object):
         self._remaining = work
         self._process = None
         self._cancelled = False
+        self._request = request
         self._tie = tie
 
         if self._tie:
@@ -642,7 +643,7 @@ class MicroService(NamedObject):
         Produces work and wait for the executor to consume it.
         """
         # TODO: Associate a work item with the request that created it.
-        work = Work(self._env, demand, tie)
+        work = Work(self._env, demand, request, tie)
 
         try:
             before_work_consumed = work.amount_consumed
