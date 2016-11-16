@@ -297,6 +297,9 @@ class VirtualMachine(NamedObject):
         decisions, take into account that the work item is related to the
         given request.
         """
+        # TODO: This method is waaay too large. However, splitting it up is
+        # non-trivial if performance is to be maintained.
+
         max_work_to_consume = self._env.to_time(max_work_to_consume)
         executor = self._executor
         scheduler, timeslice = self._scheduler
@@ -337,80 +340,82 @@ class VirtualMachine(NamedObject):
             raise NotImplementedError() # should never get here
 
         self._runnable_sched_entities.add(sched_entity)
-        while max_work_to_consume > 0 and not work.consumed:
-            if scheduler == 'ttlas':
-                priority = request.attained_time
-            if scheduler == 'cfs':
-                priority = sched_entity.vruntime
+        try:
+            while max_work_to_consume > 0 and not work.consumed:
+                if scheduler == 'ttlas':
+                    priority = request.attained_time
+                if scheduler == 'cfs':
+                    priority = sched_entity.vruntime
 
-            # For priority "A smaller number means higher priority."
-            with cpu_request(priority=priority, preempt=preempt) as req:
-                try:
-                    amount_consumed_before = work.amount_consumed
-                    cpu_id = None
+                # For priority "A smaller number means higher priority."
+                with cpu_request(priority=priority, preempt=preempt) as req:
+                    try:
+                        amount_consumed_before = work.amount_consumed
+                        cpu_id = None
 
-                    yield req
+                        yield req
 
-                    if scheduler == 'cfs':
-                        timeslice = self._env.to_time(
-                            max(sched_latency/(len(cpus.users)+len(cpus.queue)),
-                                sched_min_granularity))
-                    work_to_consume = min(timeslice, max_work_to_consume)
+                        if scheduler == 'cfs':
+                            timeslice = self._env.to_time(
+                                max(sched_latency/(len(cpus.users)+len(cpus.queue)),
+                                    sched_min_granularity))
+                        work_to_consume = min(timeslice, max_work_to_consume)
 
-                    self._num_active_cpus += 1
+                        self._num_active_cpus += 1
 
-                    assert self._num_active_cpus <= num_cpus, \
-                        "Weird! Attempt to execute more requests "+\
-                        "concurrently than available CPUs. There "+\
-                        "is a bug in the simulator."
+                        assert self._num_active_cpus <= num_cpus, \
+                            "Weird! Attempt to execute more requests "+\
+                            "concurrently than available CPUs. There "+\
+                            "is a bug in the simulator."
 
-                    # This code is a bit cryptic to improve performance. In
-                    # essence, we simulate CPU caches and track what work
-                    # was execute on each CPU. If we find the CPU on which the
-                    # current work was last executed, we consider the cache
-                    # to be hot and no overhead is paid. Otherwise, we
-                    # search for an idle CPU, consider the cache cold and
-                    # pay the overhead.
-                    cache_is_hot = False
+                        # This code is a bit cryptic to improve performance. In
+                        # essence, we simulate CPU caches and track what work
+                        # was execute on each CPU. If we find the CPU on which the
+                        # current work was last executed, we consider the cache
+                        # to be hot and no overhead is paid. Otherwise, we
+                        # search for an idle CPU, consider the cache cold and
+                        # pay the overhead.
+                        cache_is_hot = False
 
-                    some_idle_cpu_id = None
-                    for cpu_id in range(len(self._cpu_is_idle)):
-                        if self._cpu_cache[cpu_id] == work:
-                            cache_is_hot = True
-                            break
-                        if self._cpu_is_idle[cpu_id]:
-                            some_idle_cpu_id = cpu_id
+                        some_idle_cpu_id = None
+                        for cpu_id in range(len(self._cpu_is_idle)):
+                            if self._cpu_cache[cpu_id] == work:
+                                cache_is_hot = True
+                                break
+                            if self._cpu_is_idle[cpu_id]:
+                                some_idle_cpu_id = cpu_id
 
-                    if not cache_is_hot:
-                        cpu_id = some_idle_cpu_id
-                        self._cpu_cache[cpu_id] = work
-                    self._cpu_is_idle[cpu_id] = False
-
-                    if executor is None:
                         if not cache_is_hot:
-                            yield self._env.timeout(self._context_switch_overhead)
-                        yield from work.consume(work_to_consume)
-                    else:
-                        yield from executor.execute(self._cpu_thread[cpu_id], request, work,
-                                                    work_to_consume)
-                except simpy.Interrupt as interrupt:
-                    if interrupt.cause.resource == cpus:
-                        pass
-                    else:
-                        raise
-                except Cancelled:
-                    raise # propagate cancellation up
-                finally:
-                    work_consumed = work.amount_consumed-amount_consumed_before
-                    self._cpu_time += work_consumed
-                    max_work_to_consume -= work_consumed
-                    self._num_active_cpus -= 1
-                    sched_entity.vruntime += work_consumed
-                    if executor is None:
-                        request.add_attained_time(work_consumed)
-                    if cpu_id is not None:
-                        self._cpu_is_idle[cpu_id] = True
-        self._runnable_sched_entities.remove(sched_entity)
+                            cpu_id = some_idle_cpu_id
+                            self._cpu_cache[cpu_id] = work
+                        self._cpu_is_idle[cpu_id] = False
+
+                        if executor is None:
+                            if not cache_is_hot:
+                                yield self._env.timeout(self._context_switch_overhead)
+                            yield from work.consume(work_to_consume)
+                        else:
+                            yield from executor.execute(self._cpu_thread[cpu_id], request, work,
+                                                        work_to_consume)
+                    except simpy.Interrupt as interrupt:
+                        if interrupt.cause.resource == cpus:
+                            pass
+                        else:
+                            raise
+                    except Cancelled:
+                        raise # propagate cancellation up
+                    finally:
+                        work_consumed = work.amount_consumed-amount_consumed_before
+                        self._cpu_time += work_consumed
+                        max_work_to_consume -= work_consumed
+                        self._num_active_cpus -= 1
+                        sched_entity.vruntime += work_consumed
+                        if executor is None:
+                            request.add_attained_time(work_consumed)
+                        if cpu_id is not None:
+                            self._cpu_is_idle[cpu_id] = True
+        finally:
+            self._runnable_sched_entities.remove(sched_entity)
 
     @property
     def cpu_time(self):
