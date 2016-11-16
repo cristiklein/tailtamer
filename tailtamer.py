@@ -220,12 +220,13 @@ class Work(object):
         """
         return self._remaining == 0
 
-class Thread(object):
+class Thread(NamedObject):
     """
     Simulates a thread, i.e., something that the scheduler can use to decide
     what to execute next.
     """
-    def __init__(self):
+    def __init__(self, prefix='thr', name=None):
+        super().__init__(prefix=prefix, name=name)
         self.vruntime = 0
 
 class VirtualMachine(NamedObject):
@@ -258,7 +259,7 @@ class VirtualMachine(NamedObject):
         ## keep track of which CPUs are busy
         self._cpu_is_idle  = [ True ] * num_cpus
         ## conversion from VCPU to OS thread, à la type 2 hypervisor
-        self._cpu_thread = [ Thread() for _ in range(num_cpus) ]
+        self._cpu_thread = [ Thread(name=str(self)+'_cpu'+str(i)) for i in range(num_cpus) ]
 
         self._cpu_time = 0
 
@@ -553,6 +554,7 @@ class MicroService(NamedObject):
         self._total_work = 0
         self._total_work_wasted = 0
         self._thread_pool = []
+        self._num_threads = 0
 
     def run_on(self, executor):
         """
@@ -586,7 +588,8 @@ class MicroService(NamedObject):
         # We assume the thread pool is large enough, we do not focus on soft
         # resource contention in this simulation
         if not self._thread_pool:
-            self._thread_pool.append(Thread())
+            self._thread_pool.append(Thread(name=str(self)+'_thr'+str(self._num_threads)))
+            self._num_threads += 1
         thread = self._thread_pool.pop()
 
         demand = max(
