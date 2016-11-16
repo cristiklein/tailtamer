@@ -234,6 +234,7 @@ class VirtualMachine(NamedObject):
     Simulates a virtual machine.
     """
     ALLOWED_SCHEDULERS = [
+        'bvt',
         'cfs',
         'fifo',
         'ps',
@@ -311,7 +312,7 @@ class VirtualMachine(NamedObject):
         sched_min_granularity = self._env.to_time('0.003')
 
         # A smaller number means higher priority.
-        if scheduler == 'cfs':
+        if scheduler in [ 'bvt', 'cfs' ]:
             preempt = False
             priority = 0
             # http://lxr.free-electrons.com/source/kernel/sched/fair.c#L457
@@ -319,7 +320,11 @@ class VirtualMachine(NamedObject):
                 min_vruntime = min([se.vruntime for se in self._runnable_sched_entities])
                 self._min_vruntime = max(self._min_vruntime, min_vruntime)
             # http://lxr.free-electrons.com/source/kernel/sched/fair.c#L3262
-            vruntime = self._min_vruntime - sched_latency/2
+            if scheduler == 'cfs':
+                vruntime = self._min_vruntime - sched_latency/2
+            # https://gist.github.com/leverich/5913713
+            if scheduler == 'bvt':
+                vruntime = self._min_vruntime + self._env.to_time('0.000001')
             sched_entity.vruntime = max(sched_entity.vruntime, vruntime)
         elif scheduler == 'fifo':
             preempt = False
@@ -344,7 +349,7 @@ class VirtualMachine(NamedObject):
             while max_work_to_consume > 0 and not work.consumed:
                 if scheduler == 'ttlas':
                     priority = request.attained_time
-                if scheduler == 'cfs':
+                if scheduler in [ 'bvt', 'cfs' ]:
                     priority = sched_entity.vruntime
 
                 # For priority "A smaller number means higher priority."
@@ -355,7 +360,7 @@ class VirtualMachine(NamedObject):
 
                         yield req
 
-                        if scheduler == 'cfs':
+                        if scheduler in ['bvt', 'cfs']:
                             timeslice = self._env.to_time(
                                 max(sched_latency/(len(cpus.users)+len(cpus.queue)),
                                     sched_min_granularity))
@@ -995,7 +1000,8 @@ def explore_param(output_filename, name, values, output_name=None,
 
     method_param_tie_tuples = [
         ('cfs' , None   , False), # pylint: disable=bad-whitespace
-        ('cfs' , None   , True ), # pylint: disable=bad-whitespace
+        ('bvt' , None   , False), # pylint: disable=bad-whitespace
+        ('bvt' , None   , True ), # pylint: disable=bad-whitespace
         ('fifo', None   , False), # pylint: disable=bad-whitespace
         ('tt'  , '0.005', False), # pylint: disable=bad-whitespace
         ('tt'  , '0.020', False), # pylint: disable=bad-whitespace
