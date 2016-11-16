@@ -265,6 +265,9 @@ class VirtualMachine(NamedObject):
 
         self._num_active_cpus = 0
 
+        self._runnable_sched_entities = set()
+        self._min_vruntime = 0
+
     def run_on(self, executor):
         """
         Sets the executor (usually a PhysicalMachine) on which this
@@ -308,6 +311,13 @@ class VirtualMachine(NamedObject):
         if scheduler == 'cfs':
             preempt = False
             priority = 0
+            # http://lxr.free-electrons.com/source/kernel/sched/fair.c#L457
+            if self._runnable_sched_entities:
+                min_vruntime = min([se.vruntime for se in self._runnable_sched_entities])
+                self._min_vruntime = max(self._min_vruntime, min_vruntime)
+            # http://lxr.free-electrons.com/source/kernel/sched/fair.c#L3262
+            vruntime = self._min_vruntime - sched_latency/2
+            sched_entity.vruntime = max(sched_entity.vruntime, vruntime)
         elif scheduler == 'fifo':
             preempt = False
             priority = 0
@@ -326,6 +336,7 @@ class VirtualMachine(NamedObject):
         else:
             raise NotImplementedError() # should never get here
 
+        self._runnable_sched_entities.add(sched_entity)
         while max_work_to_consume > 0 and not work.consumed:
             if scheduler == 'ttlas':
                 priority = request.attained_time
@@ -399,6 +410,7 @@ class VirtualMachine(NamedObject):
                         request.add_attained_time(work_consumed)
                     if cpu_id is not None:
                         self._cpu_is_idle[cpu_id] = True
+        self._runnable_sched_entities.remove(sched_entity)
 
     @property
     def cpu_time(self):
