@@ -16,7 +16,7 @@ test:
 
 run: .run.timestamp
 
-.run.timestamp: init tailtamer.py
+.run.timestamp: init tailtamer/*.py
 	python3 -OO -m tailtamer
 
 plot: .plot.timestamp
