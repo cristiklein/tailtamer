@@ -1,7 +1,8 @@
 import decimal
-import simpy
 import sys
 import traceback
+
+import simpy
 
 from .application import DEFAULT_LAYERS_CONFIG, layered_microservices
 from .base import Result
@@ -76,8 +77,8 @@ def run_simulation(
     us_id = 0
     for microservice in microservices:
         # Round-robin micro-service to PM mapping
-        microservice.run_on(physical_machines[us_id %
-            num_physical_machines])
+        physical_machine = physical_machines[us_id % num_physical_machines]
+        microservice.run_on(physical_machine)
         us_id += 1
 
     #

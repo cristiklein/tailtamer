@@ -1,3 +1,7 @@
+"""
+Contains concepts related to requests, tracing them and the work they generate.
+"""
+
 import collections
 import simpy
 
@@ -83,7 +87,7 @@ class Work(object):
         self._tie = tie
 
         if self._tie:
-            cancel_after_start, start_event, cancel_event = self._tie
+            cancel_event = self._tie[2]
             cancel_event.callbacks.append(self.cancel)
 
     def consume(self, max_work_to_consume):
@@ -115,7 +119,7 @@ class Work(object):
                 start_event.succeed()
             yield self._env.timeout(work_to_consume)
         except simpy.Interrupt as interrupt:
-            if interrupt.cause=='cancelled':
+            if interrupt.cause == 'cancelled':
                 assert self._cancelled
                 raise Cancelled() from interrupt
             raise
@@ -206,6 +210,7 @@ class Request(NamedObject):
         "Return the amount of time this request has been processed so far."
         return self._attained_time
 
-    def add_attained_time(self, by):
-        self._attained_time += by
+    def add_attained_time(self, time):
+        "Adds attained time as required for the Least-Attained-Time scheduler."
+        self._attained_time += time
 

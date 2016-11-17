@@ -1,3 +1,8 @@
+"""
+Contains implementations for various client or load generators. Currently only
+OpenLoopClient is implemented.
+"""
+
 import random
 
 from .request import Request
@@ -19,7 +24,7 @@ class OpenLoopClient(object):
 
     def connect_to(self, microservices):
         "Sets the frontend microservice(s)."
-        if type(microservices) is not list:
+        if not isinstance(microservices, list):
             self._downstream = [microservices]
         else:
             self._downstream = microservices

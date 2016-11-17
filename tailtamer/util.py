@@ -1,3 +1,7 @@
+"""
+Contains various self-contained utility functions.
+"""
+
 import itertools
 
 def pairwise(iterable):
@@ -11,6 +15,13 @@ def pretty_kwds(kwds, sep=' '):
     return sep.join(sorted([str(k)+'='+str(v) for k, v in kwds.items()]))
 
 def bounded_pareto(rng, alpha, L, H):
+    """
+    Generates a random number according to a bounded pareto distribution.
+
+    Example:
+        rng = random.random()
+        x = bounded_pareto(rng, 2, 0.1, 1.0)
+    """
     # pylint: disable=invalid-name
     U = rng.random()
     Ha = H**alpha

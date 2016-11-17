@@ -101,22 +101,22 @@ class MicroService(NamedObject):
                 yield self._env.process(microservice.on_request(request))
             else:
                 tie_pair = RequestTiePair(self._env)
-                r1 = self._env.process(
+                request1 = self._env.process(
                     microservice.on_request(request, tie_pair.high_prio))
-                r2 = self._env.process(
+                request2 = self._env.process(
                     secondary.on_request(request, tie_pair.low_prio))
 
                 try:
-                    yield r1 | r2
-                    if r2.triggered and r2.ok:
-                        # Make r1 always the completed request
-                        r1, r2 = r2, r1
-                    r2.defused = True
+                    yield request1 | request2
+                    if request2.triggered and request2.ok:
+                        # Make request1 always the completed request
+                        request1, request2 = request2, request1
+                    request2.defused = True
                 except Cancelled:
-                    if not r2.triggered or r2.ok:
-                        # Make r1 always the completed request
-                        r1, r2 = r2, r1
-                    yield r1
+                    if not request2.triggered or request2.ok:
+                        # Make request1 always the completed request
+                        request1, request2 = request2, request1
+                    yield request1
             yield self._env.process(
                 self._compute(thread, request, demand_between_calls))
 
@@ -130,7 +130,6 @@ class MicroService(NamedObject):
         """
         Produces work and wait for the executor to consume it.
         """
-        # TODO: Associate a work item with the request that created it.
         work = Work(self._env, demand, request, tie)
 
         try:

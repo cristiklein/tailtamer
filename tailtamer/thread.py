@@ -1,3 +1,7 @@
+"""
+Currently contains just Thread
+"""
+
 from .base import NamedObject
 
 class Thread(NamedObject):

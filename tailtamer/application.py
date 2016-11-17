@@ -62,11 +62,10 @@ def with_tied_requests(template_layers_config):
     return layers_config
 
 def layered_microservices(env, seed, simulation_duration, arrival_rate,
-                          layers_config, **kwds):
+                          layers_config, **_):
     """
     Produces a layered micro-service architecture and a single client.
     """
-    kwds # Absorb unused arguments from __main__ and silence pylint
 
     clients = [
         OpenLoopClient(env, seed=seed,
@@ -103,12 +102,11 @@ def layered_microservices(env, seed, simulation_duration, arrival_rate,
     return clients, microservices
 
 def so_microservices(env, seed, simulation_duration, arrival_rate,
-                     relative_variance=0.1, **kwds):
+                     relative_variance=0.1, **_):
     """
     Produces a micro-service architecture similar to StackOverflow:
     https://nickcraver.com/blog/2016/02/17/stack-overflow-the-architecture-2016-edition/
     """
-    kwds # Absorb unused arguments from __main__ and silence pylint
 
     clients = [
         OpenLoopClient(env, seed=seed,

@@ -19,7 +19,7 @@ class VirtualMachine(NamedObject):
     ]
 
     def __init__(self, env, num_cpus, prefix='vm', name=None,
-            context_switch_overhead=0):
+                 context_switch_overhead=0):
         super().__init__(prefix=prefix, name=name)
 
         self._env = env
@@ -31,11 +31,11 @@ class VirtualMachine(NamedObject):
             self._env.to_time(context_switch_overhead)
         ## stores last work performed on each CPU, to decide whether context
         # switching overhead should be added or not.
-        self._cpu_cache = [ None ] * num_cpus
+        self._cpu_cache = [None] * num_cpus
         ## keep track of which CPUs are busy
-        self._cpu_is_idle  = [ True ] * num_cpus
+        self._cpu_is_idle = [True] * num_cpus
         ## conversion from VCPU to OS thread, à la type 2 hypervisor
-        self._cpu_thread = [ Thread(name=str(self)+'_cpu'+str(i)) for i in range(num_cpus) ]
+        self._cpu_thread = [Thread(name=str(self)+'_cpu'+str(i)) for i in range(num_cpus)]
 
         self._cpu_time = 0
 
@@ -87,7 +87,7 @@ class VirtualMachine(NamedObject):
         sched_min_granularity = self._env.to_time('0.003')
 
         # A smaller number means higher priority.
-        if scheduler in [ 'bvt', 'cfs' ]:
+        if scheduler in ['bvt', 'cfs']:
             preempt = False
             priority = 0
             # http://lxr.free-electrons.com/source/kernel/sched/fair.c#L457
@@ -124,7 +124,7 @@ class VirtualMachine(NamedObject):
             while max_work_to_consume > 0 and not work.consumed:
                 if scheduler == 'ttlas':
                     priority = request.attained_time
-                if scheduler in [ 'bvt', 'cfs' ]:
+                if scheduler in ['bvt', 'cfs']:
                     priority = sched_entity.vruntime
 
                 # For priority "A smaller number means higher priority."

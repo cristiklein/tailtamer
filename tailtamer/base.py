@@ -1,3 +1,7 @@
+"""
+Base classes on top of which other simulator classes are based on
+"""
+
 import collections
 import itertools
 
