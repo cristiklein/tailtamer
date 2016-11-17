@@ -914,25 +914,18 @@ def run_simulation(
     #
     # Vertical wiring
     #
-    virtual_machines = []
-    vm_id = 0
+    us_id = 0
     for microservice in microservices:
-        virtual_machine = VirtualMachine(env, num_cpus=16)
-        virtual_machine.name = 'vm_' + str(microservice)
-        microservice.run_on(virtual_machine)
-        # Round-robin VM to PM mapping
-        virtual_machine.run_on(physical_machines[vm_id %
+        # Round-robin micro-service to PM mapping
+        microservice.run_on(physical_machines[us_id %
             num_physical_machines])
-        vm_id += 1
-        virtual_machines.append(virtual_machine)
+        us_id += 1
 
     #
     # Configure schedulers
     #
     for physical_machine in physical_machines:
         physical_machine.set_scheduler(method, method_param)
-    for virtual_machine in virtual_machines:
-        virtual_machine.set_scheduler(method, method_param)
 
     #
     # Run simulation
@@ -954,11 +947,6 @@ def run_simulation(
     #
     expected_cpu_time = sum([
         us.total_work for us in microservices])
-
-    # Ensure VMs did not produce more CPU that requests could have consumed
-    actual_vm_cpu_time = sum([vm.cpu_time for vm in virtual_machines])
-    assert_equal(actual_vm_cpu_time, expected_cpu_time,
-                 'VM CPU time check failed')
 
     # Same for PMs
     actual_pm_cpu_time = sum([pm.cpu_time for pm in physical_machines])
