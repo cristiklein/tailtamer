@@ -22,8 +22,8 @@ my_plot <- function(input_file_name, x_column, x_label, x_mult=NA, ylim=c(0, 1))
     data$x <- as.factor(data[[x_column]] * x_mult)
 
   # Make method name friendlier
-  friendly_names  = c("fifo", "cfs", "tie"    , "tt05"    , "tt20"    , "ttP")
-  simulator_names = c("fifo", "cfs", "cfs+tie", "tt_0.005", "tt_0.020", "tt+p")
+  friendly_names  = c("bvt", "tie"    , "fifo", "cfs", "tie"    , "tt05"    , "tt20"    , "ttP")
+  simulator_names = c("bvt", "bvt+tie", "fifo", "cfs", "cfs+tie", "tt_0.005", "tt_0.020", "tt+p")
   data$method <- friendly_names[ match(data$method, simulator_names) ]
   
   # TODO: super-inefficient
