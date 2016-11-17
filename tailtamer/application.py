@@ -6,6 +6,7 @@ from .util import pairwise
 
 __all__ = [
     "DEFAULT_LAYERS_CONFIG",
+    "MONOLITHIC_CONFIG",
     "with_relative_variance", "with_last_degree", "with_last_multiplicity",
     "with_tied_requests",
     "layered_microservices", "so_microservices"]
@@ -22,6 +23,11 @@ DEFAULT_LAYERS_CONFIG = (
     Layer(average_work=0.010, relative_variance=0, degree=1, multiplicity=1,
           use_tied_requests=False),
     Layer(average_work=0.088, relative_variance=0, degree=1, multiplicity=1,
+          use_tied_requests=False),
+)
+
+MONOLITHIC_CONFIG = (
+    Layer(average_work=0.100, relative_variance=0, degree=1, multiplicity=1,
           use_tied_requests=False),
 )
 
