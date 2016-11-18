@@ -33,8 +33,8 @@ def explore_param(output_filename, name, values, output_name=None,
         ('bvt' , None   , False), # pylint: disable=bad-whitespace
         ('bvt' , None   , True ), # pylint: disable=bad-whitespace
         ('fifo', None   , False), # pylint: disable=bad-whitespace
+        ('ps'  , None   , False), # pylint: disable=bad-whitespace
         ('tt'  , '0.005', False), # pylint: disable=bad-whitespace
-        ('tt'  , '0.020', False), # pylint: disable=bad-whitespace
         ('tt+p', None   , False), # pylint: disable=bad-whitespace
         # Disabled for now: gives really bad performance
         #('ttlas', '0.001', False), # pylint: disable=bad-whitespace

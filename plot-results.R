@@ -22,8 +22,8 @@ my_plot <- function(input_file_name, x_column, x_label, x_mult=NA, ylim=c(0, 1))
     data$x <- as.factor(data[[x_column]] * x_mult)
 
   # Make method name friendlier (final plot will feature the same order)
-  friendly_names  = c("cfs", "bvt", "tie"    , "fifo", "cfs", "tt05"    , "tt20"    , "ttP" , "ttlas", "ps")
-  simulator_names = c("cfs", "bvt", "bvt+tie", "fifo", "cfs", "tt_0.005", "tt_0.020", "tt+p", "ttlas", "ps")
+  friendly_names  = c("cfs", "bvt", "tie"    , "ps", "fifo", "tt05"    , "tt20"    , "ttP" , "ttlas")
+  simulator_names = c("cfs", "bvt", "bvt+tie", "ps", "fifo", "tt_0.005", "tt_0.020", "tt+p", "ttlas")
   levels(data$method) <- friendly_names[match(levels(data$method), simulator_names)]
   data$method <- factor(data$method, levels = friendly_names)
   
