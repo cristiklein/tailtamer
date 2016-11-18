@@ -29,7 +29,8 @@ def explore_param(output_filename, name, values, output_name=None,
                 ' '.join([str(value) for value in output_values]))
 
     method_param_tie_tuples = [
-        ('cfs' , None   , False), # pylint: disable=bad-whitespace
+        # Disabled for now: always worse than BVT and less convincing
+        #('cfs' , None   , False), # pylint: disable=bad-whitespace
         ('bvt' , None   , False), # pylint: disable=bad-whitespace
         ('bvt' , None   , True ), # pylint: disable=bad-whitespace
         ('fifo', None   , False), # pylint: disable=bad-whitespace
