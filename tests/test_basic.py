@@ -1,5 +1,5 @@
-from .context import tailtamer
+import tailtamer.__main__
 
 # Basic sanity check
 def test_import_works():
-    assert tailtamer.main
+    assert tailtamer.__main__.main

@@ -1,9 +1,7 @@
-from .context import tailtamer
+from tailtamer.util import bounded_pareto
 
 from math import pow
 import random
-
-bounded_pareto = tailtamer.bounded_pareto
 
 def mean(x):
     if len(x) == 0:

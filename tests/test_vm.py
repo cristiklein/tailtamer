@@ -1,24 +1,26 @@
-from .context import tailtamer
+from tailtamer import \
+        Request, Work, VirtualMachine, PhysicalMachine, NsSimPyEnvironment, Thread
 
 import simpy
 import sys
 
 def generate_one_request(env, vm, requests, start_time=0, this_vm_start_time=0,
         work=1):
-    request = tailtamer.Request(env.to_time(start_time))
+    request = Request(env.to_time(start_time))
     requests.append(request)
 
     def proc():
         yield env.timeout(env.to_time(this_vm_start_time))
-        w = tailtamer.Work(env, env.to_time(work))
-        yield env.process(vm.execute(request, w))
+        w = Work(env, env.to_time(work), request)
+        sched_entity = Thread()
+        yield env.process(vm.execute(sched_entity, request, w))
         request.end_time = env.now
     
     env.process(proc())
 
 def test_fifo():
-    env = tailtamer.NsSimPyEnvironment()
-    vm = tailtamer.VirtualMachine(env, num_cpus=1)
+    env = NsSimPyEnvironment()
+    vm = VirtualMachine(env, num_cpus=1)
     vm.set_scheduler('fifo')
 
     requests = []
@@ -37,8 +39,8 @@ def test_fifo():
     assert vm.cpu_time==2
 
 def test_ps():
-    env = tailtamer.NsSimPyEnvironment()
-    vm = tailtamer.VirtualMachine(env, num_cpus=1)
+    env = NsSimPyEnvironment()
+    vm = VirtualMachine(env, num_cpus=1)
     vm.set_scheduler('ps')
 
     requests = []
@@ -57,8 +59,8 @@ def test_ps():
     assert vm.cpu_time==2
 
 def test_tail_tamer_without_preemption():
-    env = tailtamer.NsSimPyEnvironment()
-    vm = tailtamer.VirtualMachine(env, num_cpus=1)
+    env = NsSimPyEnvironment()
+    vm = VirtualMachine(env, num_cpus=1)
     vm.set_scheduler('tt')
 
     requests = []
@@ -79,8 +81,8 @@ def test_tail_tamer_without_preemption():
     assert vm.cpu_time==3, vm.cpu_time
 
 def test_tail_tamer_with_preemption():
-    env = tailtamer.NsSimPyEnvironment()
-    vm = tailtamer.VirtualMachine(env, num_cpus=1)
+    env = NsSimPyEnvironment()
+    vm = VirtualMachine(env, num_cpus=1)
     vm.set_scheduler('tt+p')
 
     requests = []
@@ -101,9 +103,9 @@ def test_tail_tamer_with_preemption():
     assert vm.cpu_time==3
 
 def test_tail_tamer_with_preemption_nested():
-    env = tailtamer.NsSimPyEnvironment()
-    vm = tailtamer.VirtualMachine(env, num_cpus=1)
-    pm = tailtamer.PhysicalMachine(env, num_cpus=1)
+    env = NsSimPyEnvironment()
+    vm = VirtualMachine(env, num_cpus=1)
+    pm = PhysicalMachine(env, num_cpus=1)
     vm.run_on(pm)
     vm.set_scheduler('tt+p')
     pm.set_scheduler('tt+p')
@@ -129,8 +131,8 @@ def test_tail_tamer_with_preemption_nested():
     assert pm.cpu_time==3, pm.cpu_time
 
 def test_ttlas():
-    env = tailtamer.NsSimPyEnvironment()
-    vm = tailtamer.VirtualMachine(env, num_cpus=1)
+    env = NsSimPyEnvironment()
+    vm = VirtualMachine(env, num_cpus=1)
     vm.set_scheduler('ttlas')
 
     requests = []

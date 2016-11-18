@@ -1,4 +1,4 @@
-from .context import tailtamer
+from tailtamer import NsSimPyEnvironment
 
 from nose.tools import raises
 
@@ -13,7 +13,7 @@ def test_ns_fail():
     """
     Ensure it is not possible to inject floats into simulation time.
     """
-    env = tailtamer.NsSimPyEnvironment()
+    env = NsSimPyEnvironment()
     env.process(some_process(env, 10.1))
     env.run()
 
@@ -22,7 +22,7 @@ def test_ns_fail2():
     """
     Ensure it is not possible to inject floats into simulation time.
     """
-    env = tailtamer.NsSimPyEnvironment()
+    env = NsSimPyEnvironment()
     env.process(some_process(env, 4e-29))
     env.run()
 
@@ -30,7 +30,7 @@ def test_ns_ok1():
     """
     Integer timeout should be okey
     """
-    env = tailtamer.NsSimPyEnvironment()
+    env = NsSimPyEnvironment()
     env.process(some_process(env, env.to_time(10)))
     env.run()
     assert env.now == 10
@@ -39,7 +39,7 @@ def test_ns_ok2():
     """
     Integer timeout should be okey
     """
-    env = tailtamer.NsSimPyEnvironment()
+    env = NsSimPyEnvironment()
     env.process(some_process(env, env.to_time('10.1')))
     env.run()
     env.process(some_process(env, env.to_time('0.9')))
