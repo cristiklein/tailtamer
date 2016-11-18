@@ -103,7 +103,7 @@ class VirtualMachine(NamedObject):
             sched_entity.vruntime = max(sched_entity.vruntime, vruntime)
         elif scheduler == 'fifo':
             preempt = False
-            priority = 0
+            priority = self._env.now
         elif scheduler == 'ps':
             preempt = False
             priority = 0
