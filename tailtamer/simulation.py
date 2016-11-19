@@ -38,6 +38,7 @@ def run_simulation(
         method,
         method_param=None,
         arrival_rate=152,
+        load_per_cpu=None,
         context_switch_overhead=0,
         layers_config=DEFAULT_LAYERS_CONFIG,
         software_layer_generator=layered_microservices,
@@ -69,6 +70,8 @@ def run_simulation(
     #
     # Software layer
     #
+    if load_per_cpu is not None:
+        arrival_rate = num_physical_cpus * load_per_cpu * 10
     clients, microservices = software_layer_generator(**locals())
 
     #
