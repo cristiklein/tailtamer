@@ -105,6 +105,12 @@ def main():
         output_name='load',
         output_values=loads)
 
+    loads = [0.8, 0.825, 0.85, 0.875, 0.9, 0.925, 0.95, 0.975]
+    explore_param(
+        'results-cpus.csv', 'num_physical_cpus',
+        [2, 4, 8, 16],
+        load_per_cpu=0.95)
+
     # Variance
     explore_param(
         'results-var.csv', 'layers_config',

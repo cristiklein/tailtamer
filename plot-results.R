@@ -97,6 +97,7 @@ my_plot <- function(input_file_name, x_column, x_label, x_mult=NA, ylim=c(0, 1))
 }
 
 my_plot('results-ar.csv', 'load', 'Load')
+my_plot('results-cpus.csv', 'num_physical_cpus', 'Number of CPUs', ylim=c(0, 2.5))
 my_plot('results-deg.csv', 'degree', 'Degree')
 my_plot('results-mul.csv', 'multiplicity', 'Fan-out')
 my_plot('results-var.csv', 'relative_variance', 'Coefficient of variation [%]', x_mult=100)
