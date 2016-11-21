@@ -1,3 +1,7 @@
+"""
+Various application topologies.
+"""
+
 import collections
 
 from .client import OpenLoopClient
@@ -32,12 +36,21 @@ MONOLITHIC_CONFIG = (
 )
 
 def with_relative_variance(template_layers_config, relative_variance):
+    """
+    Change the relative varience of each layer in a layered micro-service
+    application.
+    """
     layers_config = [
         layer_config._replace(relative_variance=relative_variance) for
         layer_config in template_layers_config]
     return layers_config
 
 def with_last_degree(template_layers_config, degree):
+    """
+    Change the degree of the last -- or actually penultimate -- layer in a
+    layered micro-service application, while keeping the average service time
+    for a user request constant.
+    """
     assert len(template_layers_config) >= 2
     layers_config = [
         layer_config for
@@ -49,6 +62,11 @@ def with_last_degree(template_layers_config, degree):
     return layers_config
 
 def with_last_multiplicity(template_layers_config, multiplicity):
+    """
+    Change the multiplicity of the last layer in a layered micro-service
+    application, while keeping the average service time for a user request
+    constant.
+    """
     layers_config = [
         layer_config for
         layer_config in template_layers_config]
@@ -59,6 +77,10 @@ def with_last_multiplicity(template_layers_config, multiplicity):
     return layers_config
 
 def with_tied_requests(template_layers_config):
+    """
+    Enabled tied requests for the last layer in a layered micro-service
+    application.
+    """
     layers_config = [
         layer_config for
         layer_config in template_layers_config]
@@ -66,6 +88,25 @@ def with_tied_requests(template_layers_config):
         layers_config[-2]._replace(
             use_tied_requests=True)
     return layers_config
+
+def _layers_and_us_from_config(env, seed, layers_config):
+    microservices = []
+    layers = []
+    for layer_config in layers_config:
+        layer = []
+        for _ in range(layer_config.multiplicity):
+            microservice = MicroService(
+                env, seed=seed,
+                name='l{0}us{1}'.format(len(layers), len(layer)),
+                average_work=layer_config.average_work,
+                variance=layer_config.average_work*layer_config.relative_variance,
+                degree=layer_config.degree,
+                use_tied_requests=layer_config.use_tied_requests,
+            )
+            microservices.append(microservice)
+            layer.append(microservice)
+        layers.append(layer)
+    return layers, microservices
 
 def layered_microservices(env, seed, simulation_duration, arrival_rate,
                           layers_config, **_):
@@ -78,22 +119,7 @@ def layered_microservices(env, seed, simulation_duration, arrival_rate,
                        arrival_rate=arrival_rate, until=simulation_duration),
     ]
 
-    microservices = []
-    layers = []
-    for c in layers_config: # pylint: disable=invalid-name
-        layer = []
-        for _ in range(c.multiplicity):
-            microservice = MicroService(
-                env, seed=seed,
-                name='l{0}us{1}'.format(len(layers), len(layer)),
-                average_work=c.average_work,
-                variance=c.average_work*c.relative_variance,
-                degree=c.degree,
-                use_tied_requests=c.use_tied_requests,
-            )
-            microservices.append(microservice)
-            layer.append(microservice)
-        layers.append(layer)
+    layers, microservices = _layers_and_us_from_config(env, seed, layers_config)
 
     #
     # Horizontal wiring
@@ -157,8 +183,6 @@ def so_microservices(env, seed, simulation_duration, arrival_rate,
         for i in range(4)
     ]
 
-    microservices = haproxy + web + redis + search + tag + dba
-
     #
     # Horizontal wiring
     #
@@ -177,4 +201,4 @@ def so_microservices(env, seed, simulation_duration, arrival_rate,
     for _us in tag:
         _us.connect_to(dba, 1)
 
-    return clients, microservices
+    return clients, haproxy + web + redis + search + tag + dba
