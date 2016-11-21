@@ -96,6 +96,7 @@ my_plot <- function(input_file_name, x_column, x_label, x_mult=NA, ylim=c(0, 1))
   ggsave(paste0(base_file_name, "-rel.pdf"), plot=p, height=2.8*scale, width=5*scale, device=cairo_pdf)
 }
 
+my_plot('results-ar-monolith.csv', 'load', 'Load')
 my_plot('results-ar.csv', 'load', 'Load')
 my_plot('results-cpus.csv', 'num_physical_cpus', 'Number of CPUs', ylim=c(0, 2.5))
 my_plot('results-deg.csv', 'degree', 'Degree')

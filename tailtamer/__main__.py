@@ -29,8 +29,7 @@ def explore_param(output_filename, name, values, output_name=None,
                 ' '.join([str(value) for value in output_values]))
 
     method_param_tie_tuples = [
-        # Disabled for now: always worse than BVT and less convincing
-        #('cfs' , None   , False), # pylint: disable=bad-whitespace
+        ('cfs' , None   , False), # pylint: disable=bad-whitespace
         ('bvt' , None   , False), # pylint: disable=bad-whitespace
         ('bvt' , None   , True ), # pylint: disable=bad-whitespace
         ('fifo', None   , False), # pylint: disable=bad-whitespace
@@ -100,6 +99,14 @@ def main():
 
     loads = [0.8, 0.825, 0.85, 0.875, 0.9, 0.925, 0.95, 0.975]
     explore_param(
+        'results-ar-monolith.csv', 'arrival_rate',
+        [load*160.0 for load in loads],
+        layers_config=MONOLITHIC_CONFIG,
+        output_name='load',
+        output_values=loads)
+
+    loads = [0.8, 0.825, 0.85, 0.875, 0.9, 0.925, 0.95, 0.975]
+    explore_param(
         'results-ar.csv', 'arrival_rate',
         [load*160.0 for load in loads],
         output_name='load',
@@ -108,7 +115,7 @@ def main():
     loads = [0.8, 0.825, 0.85, 0.875, 0.9, 0.925, 0.95, 0.975]
     explore_param(
         'results-cpus.csv', 'num_physical_cpus',
-        [2, 4, 8, 16],
+        [1, 2, 4, 8, 16],
         load_per_cpu=0.95)
 
     # Variance
