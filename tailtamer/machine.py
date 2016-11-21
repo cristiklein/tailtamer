@@ -25,7 +25,7 @@ class VirtualMachine(NamedObject):
         self._env = env
         self._cpus = simpy.PreemptiveResource(env, num_cpus)
         self._executor = None
-        self.set_scheduler('ps', '0.005')
+        self.set_scheduler('ps', None)
 
         self._context_switch_overhead = \
             self._env.to_time(context_switch_overhead)
@@ -62,7 +62,7 @@ class VirtualMachine(NamedObject):
             raise ValueError('Invalid scheduler {0}. Allowed schedulers: {1}'
                              .format(scheduler, self.ALLOWED_SCHEDULERS))
         if timeslice is None:
-            if scheduler in ['ps', 'tt', 'ttlas']:
+            if scheduler in ['tt', 'ttlas']:
                 timeslice = '0.005'
             else:
                 timeslice = 'inf'
@@ -113,9 +113,6 @@ class VirtualMachine(NamedObject):
         elif scheduler == 'fifo':
             preempt = False
             priority = self._env.now
-        elif scheduler == 'ps':
-            preempt = False
-            priority = 0
         elif scheduler == 'tt':
             preempt = False
             priority = request.start_time
