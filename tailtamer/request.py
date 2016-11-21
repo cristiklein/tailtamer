@@ -126,7 +126,8 @@ class Work(object):
             raise
         finally:
             ended_at = self._env.now
-            self._remaining -= (ended_at-started_at)/inverse_rate
+            self._remaining -= \
+                self._env.to_time((ended_at-started_at)/inverse_rate)
             self._process = None
             if cancel_event and cancel_event.callbacks:
                 cancel_event.callbacks.remove(self.cancel)
