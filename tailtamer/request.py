@@ -117,7 +117,8 @@ class Work(object):
                 cancel_event.callbacks.remove(self.cancel)
             if start_event and not start_event.triggered:
                 start_event.succeed()
-            yield self._env.timeout(work_to_consume*inverse_rate)
+            yield \
+                self._env.timeout(self._env.to_time(work_to_consume*inverse_rate))
         except simpy.Interrupt as interrupt:
             if interrupt.cause == 'cancelled':
                 assert self._cancelled
