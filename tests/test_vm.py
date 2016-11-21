@@ -18,6 +18,11 @@ def generate_one_request(env, vm, requests, start_time=0, this_vm_start_time=0,
     
     env.process(proc())
 
+def assert_equal(actual, expected):
+    if actual!=expected:
+        raise AssertionError("Expected: {0}, actual {1}".format(expected,
+            actual))
+
 def test_fifo():
     env = NsSimPyEnvironment()
     vm = VirtualMachine(env, num_cpus=1)
@@ -48,15 +53,23 @@ def test_ps():
     generate_one_request(env, vm, requests)
     generate_one_request(env, vm, requests)
 
+    generate_one_request(env, vm, requests, this_vm_start_time=3)
+    generate_one_request(env, vm, requests, this_vm_start_time=3.5)
+    generate_one_request(env, vm, requests, this_vm_start_time=4)
+
     env.run()
 
-    assert requests[0].start_time==0
-    assert requests[1].start_time==0
+    assert_equal(requests[0].start_time, 0)
+    assert_equal(requests[1].start_time, 0)
 
-    assert requests[0].end_time==env.to_time('1.995')
-    assert requests[1].end_time==env.to_time('2.000')
+    assert_equal(requests[0].end_time, env.to_time('2.000'))
+    assert_equal(requests[1].end_time, env.to_time('2.000'))
 
-    assert vm.cpu_time==2
+    assert_equal(requests[2].end_time, env.to_time('4.75'))
+    assert_equal(requests[3].end_time, env.to_time('5.75'))
+    assert_equal(requests[4].end_time, env.to_time('6'))
+
+    assert_equal(vm.cpu_time, 5)
 
 def test_tail_tamer_without_preemption():
     env = NsSimPyEnvironment()

@@ -44,6 +44,8 @@ class VirtualMachine(NamedObject):
         self._runnable_sched_entities = set()
         self._min_vruntime = 0
 
+        self._ps_processes = set()
+
     def run_on(self, executor):
         """
         Sets the executor (usually a PhysicalMachine) on which this
@@ -82,6 +84,13 @@ class VirtualMachine(NamedObject):
         cpus = self._cpus
         cpu_request = self._cpus.request
         num_cpus = self._cpus.capacity
+
+        if scheduler=='ps':
+            if executor is None:
+                yield from self._execute_ps(request, work, max_work_to_consume)
+                return
+            else:
+                raise NotImplementedError('ps with executor not implemented')
 
         sched_latency = self._env.to_time('0.024')
         sched_min_granularity = self._env.to_time('0.003')
@@ -196,6 +205,32 @@ class VirtualMachine(NamedObject):
                             self._cpu_is_idle[cpu_id] = True
         finally:
             self._runnable_sched_entities.remove(sched_entity)
+
+    def _execute_ps(self, request, work, max_work_to_consume='inf'):
+        for p in self._ps_processes:
+            if p != self._env.active_process:
+                p.interrupt()
+        self._ps_processes.add(self._env.active_process)
+
+        while max_work_to_consume > 0 and not work.consumed:
+            try:
+                amount_consumed_before = work.amount_consumed
+                yield from work.consume(max_work_to_consume,
+                    inverse_rate=len(self._ps_processes))
+            except simpy.Interrupt as interrupt:
+                pass
+            except Cancelled:
+                raise # propagate cancellation up
+            finally:
+                work_consumed = work.amount_consumed-amount_consumed_before
+                self._cpu_time += work_consumed
+                max_work_to_consume -= work_consumed
+                request.add_attained_time(work_consumed)
+
+        self._ps_processes.remove(self._env.active_process)
+        for p in self._ps_processes:
+            if p != self._env.active_process:
+                p.interrupt()
 
     @property
     def cpu_time(self):

@@ -90,7 +90,7 @@ class Work(object):
             cancel_event = self._tie[2]
             cancel_event.callbacks.append(self.cancel)
 
-    def consume(self, max_work_to_consume):
+    def consume(self, max_work_to_consume, inverse_rate=1):
         """
         Consumes work, i.e., sleeps for a given maximum amount of time.  Work is
         currently equal to time, but may in future be modulated, e.g., due to
@@ -117,7 +117,7 @@ class Work(object):
                 cancel_event.callbacks.remove(self.cancel)
             if start_event and not start_event.triggered:
                 start_event.succeed()
-            yield self._env.timeout(work_to_consume)
+            yield self._env.timeout(work_to_consume*inverse_rate)
         except simpy.Interrupt as interrupt:
             if interrupt.cause == 'cancelled':
                 assert self._cancelled
@@ -125,7 +125,7 @@ class Work(object):
             raise
         finally:
             ended_at = self._env.now
-            self._remaining -= (ended_at-started_at)
+            self._remaining -= (ended_at-started_at)/inverse_rate
             self._process = None
             if cancel_event and cancel_event.callbacks:
                 cancel_event.callbacks.remove(self.cancel)
