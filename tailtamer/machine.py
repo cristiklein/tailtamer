@@ -1,3 +1,7 @@
+"""
+Package containing models of various machines (virtual and physical) and
+associated schedulers.
+"""
 import decimal
 import simpy
 

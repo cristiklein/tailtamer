@@ -1,3 +1,7 @@
+"""
+Package to simulate a microservice.
+"""
+
 import random
 
 from .base import NamedObject
