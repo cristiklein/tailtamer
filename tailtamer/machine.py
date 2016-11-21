@@ -232,7 +232,6 @@ class VirtualMachine(NamedObject):
         self._ps_adjust_rate()
 
     def _ps_adjust_rate(self):
-        self._ps_processes.remove(self._env.active_process)
         for process in self._ps_processes:
             if process != self._env.active_process:
                 process.interrupt()
