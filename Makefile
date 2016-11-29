@@ -23,6 +23,7 @@ plot: .plot.timestamp
 	
 .plot.timestamp: plot-results.R *.csv
 	R --vanilla < plot-results.R
+	R --vanilla < plot-results-mono-vs-micro.R
 	touch $@
 
 view: plot
