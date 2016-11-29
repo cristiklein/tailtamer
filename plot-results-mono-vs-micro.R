@@ -25,7 +25,7 @@ data_micro$method <- factor(data_micro$method, levels = friendly_names)
 
 # TODO: super-inefficient
 data <- NULL
-for (method in c('cfs', 'bvt', 'fcfs', 'ttP')) {
+for (method in c('cfs', 'bvt', 'fcfs', 'tt05', 'ttP')) {
   for (app in c("monolithic", "micro-service-based")) {
     load = 0.95;
     if (app == 'monolithic') {
@@ -38,8 +38,9 @@ for (method in c('cfs', 'bvt', 'fcfs', 'ttP')) {
   }
 }
 
-x_label = "Scheduling algorithm"
+x_label = "Scheduler"
 plot_title = sprintf('Simulation Results (%s%s)', git_commit, if (git_dirty) '+' else '')
+levels(data$app) <- paste0(levels(data$app), "      ")
 
 p <- ggplot(data, aes(x=method, y=rt99, fill=app)) +
   labs(title=plot_title, x=x_label, y = "99th percentile\nresponse time [s]", fill="") +
