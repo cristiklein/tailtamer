@@ -28,6 +28,7 @@ my_plot <- function(input_file_name, x_column, x_label, x_mult=NA, ylim=c(0, 1))
   data$method <- factor(data$method, levels = friendly_names)
 
   # Do not show ps
+  data <- data[data$method!='cfs', ]
   data <- data[data$method!='ps', ]
   
   # TODO: super-inefficient
