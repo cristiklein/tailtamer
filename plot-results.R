@@ -26,6 +26,9 @@ my_plot <- function(input_file_name, x_column, x_label, x_mult=NA, ylim=c(0, 1))
   simulator_names = c("cfs", "bvt", "bvt+tie", "ps", "fifo", "tt_0.005", "tt_0.020", "tt+p", "ttlas")
   levels(data$method) <- friendly_names[match(levels(data$method), simulator_names)]
   data$method <- factor(data$method, levels = friendly_names)
+
+  # Do not show ps
+  data <- data[data$method!='ps', ]
   
   # TODO: super-inefficient
   data_summary <- NULL
